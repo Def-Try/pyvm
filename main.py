@@ -35,7 +35,12 @@ def kbhit():
     if os.name == 'nt':
         return msvcrt.kbhit()
     else:
-        return bool(fcntl.ioctl(sys.stdin.fileno(), termios.FIONREAD, struct.pack('I', 0)))
+        fd = sys.stdin.fileno()
+        old_flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags | os.O_NONBLOCK)
+        hit = bool(fcntl.ioctl(sys.stdin.fileno(), termios.FIONREAD, struct.pack('I', 0)))
+        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags)
+        return hit
 def getch():
     global __buffer
     if not kbhit(): return ""
@@ -47,7 +52,12 @@ def getch():
             return "\n"
         return ch
     else:
-        return sys.stdin.read(1)
+        fd = sys.stdin.fileno()
+        old_flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags | os.O_NONBLOCK)
+        ch = sys.stdin.read(1)
+        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags)
+        return ch
 
 __fds = []
 def mkfile(fd=None):
@@ -438,7 +448,7 @@ def shutdowner():
     sys.exit(0)
 
 __lines = 0
-__need_lines = 1000
+__need_lines = 10000
 __doing_routine = False
 def main_routine_dispatcher(frame, event, arg):
     global routines, __lines, __need_lines, shutdown, __doing_routine
