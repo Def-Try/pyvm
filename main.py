@@ -5,6 +5,7 @@ import json
 import uuid
 import traceback
 import struct
+import random
 from collections import defaultdict
 
 uuids = defaultdict(lambda: str(uuid.uuid4()))
@@ -27,6 +28,7 @@ else:
     import termios
     import fcntl
 
+__name__ = "__PYVM_RUNNER_"+str(random.randint(10000, 99999))+"__"
 
 __buffer = []
 def kbhit():
@@ -58,6 +60,19 @@ def getch():
         ch = sys.stdin.read(1)
         fcntl.fcntl(fd, fcntl.F_SETFL, old_flags)
         return ch
+
+def trace_exc(trace):
+    traceback = ""
+    if trace.tb_next:
+        traceback += trace_exc(trace.tb_next) + "\n"
+    traceback += f"File {trace.tb_frame.f_code.co_filename} line {trace.tb_lineno}"
+    return traceback
+
+def format_exception(e):
+    klass, objekt, trace = e
+    traceback = trace_exc(trace)
+    formatted = f"{traceback}\n{objekt}"
+    return formatted
 
 __fds = []
 def mkfile(fd=None):
@@ -175,11 +190,7 @@ class HDD(Component):
             else: formed_path.append(i)
         return "/"+"/".join(formed_path)
     def exists(self, path):
-        try:
-            self.open(path, 'r').close()
-            return True
-        except:
-            return False
+        return  os.path.isfile(self.root + "/" + path) or os.path.isdir(self.root + "/" + path)
     def list(self, path):
         root = self.root + self._form_path(path)
         for item in os.listdir(root):
@@ -217,7 +228,6 @@ class Computer(Component):
     def shutdown(self):
         global shutdown
         shutdown = 1
-        while True: pass
 
 class Keyboard(Component):
     def __init__(self):
@@ -393,7 +403,8 @@ def run(code: str, *, globs=None, fn=None):
             ptbs("__build_class__", __builtins__.__build_class__)
             ptbs("isinstance", __builtins__.isinstance)
         ptbs("object", object)
-        ptbs("__name__", __name__)
+        ptbs("__name__", "__pyvm__")
+        globs["__name__"] = "__pyvm__"
         globs["components"] = components
         globs["dostring"] = _dostring
         globs["len"] = len
@@ -448,10 +459,11 @@ def shutdowner():
     sys.exit(0)
 
 __lines = 0
-__need_lines = 10000
+__need_lines = 100
 __doing_routine = False
 def main_routine_dispatcher(frame, event, arg):
     global routines, __lines, __need_lines, shutdown, __doing_routine
+    if frame.f_globals["__name__"] == __name__: return None
     if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in routines], main_routine_dispatcher]: return None
 
     if shutdown:
@@ -485,6 +497,6 @@ try:
 except SystemExit: pass
 except BaseException:
     exc = sys.exc_info()
-    error(*[i.strip() for i in traceback.format_exception(exc[0], exc[1], exc[2].tb_next)])
+    error(*format_exception([exc[0], exc[1], exc[2].tb_next]).split("\n"))
 
 shutdowner()

@@ -37,10 +37,13 @@ for type, item in fs.list("/boot"):
     log(f"Running /boot/{item}...")
     _log = log
     def log(text):
-        _log(f"/boot/{item}: "+text)
+        _log(f"/boot/{item}: "+str(text))
     dofile(f"/boot/{item}", fn=f"/boot/{item}")
     log = _log
 
 import io
+import filesystem
+
+log(filesystem.list("/"))
 
 components.computer.shutdown()

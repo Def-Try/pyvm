@@ -14,28 +14,28 @@ def delay(s):
     st = uptime()
     while uptime() - st < s: pass
 
-gpu.fill(0, 0, w, h, "█")
-delay(0.25)
-gpu.fill(0, 0, w, h, " ")
-delay(0.25)
+#gpu.fill(0, 0, w, h, "█")
+#delay(0.25)
+#gpu.fill(0, 0, w, h, " ")
+#delay(0.25)
 
 gpu.set_resolution(*gpu.max_resolution())
 w, h = gpu.get_resolution()
 gpu.set_foreground(255, 255, 255)
 
-gpu.fill(0, 0, w, h, "█")
-delay(0.25)
-gpu.fill(0, 0, w, h, " ")
-delay(1)
+#gpu.fill(0, 0, w, h, "█")
+#delay(0.25)
+#gpu.fill(0, 0, w, h, " ")
+#delay(1)
 
 print("Starting up...")
-delay(0.25)
+#delay(0.25)
 print("Component listing:")
-delay(0.25)
+#delay(0.25)
 
 for v in components.list():
     print(f"  {v.str()}")
-    delay(0.1)
+#    delay(0.1)
 
 def try_boot(fs):
     global print, delay, gpu, y, w, h
@@ -59,7 +59,6 @@ def try_boot(fs):
     del y, w, h, print, delay, file, gpu
     dostring(code, fn="init.py")
     error("system halted")
-    while True: pass
 
 if components.eeprom.data != "":
     for v in components.all("hdd"):
@@ -68,7 +67,7 @@ if components.eeprom.data != "":
     print(f"Boot from {v.uuid} unavailable...")
 
 print("Searching for bootable drive...")
-delay(1)
+#delay(1)
 
 for v in components.all("hdd"):
     try_boot(v)
