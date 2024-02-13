@@ -9,7 +9,7 @@ def importer(name, globals, locals, names, level):
     if name in loaded:
         return loaded[name]
 
-    mod = dofile(f"/lib/{name}.py", globs=globals, fn="<importing>")
+    mod = dofile(f"/lib/{name}.py", globs=globals, fn=f"/lib/{name}.py")
     mod = Module(mod)
     loaded[name] = mod
     return mod

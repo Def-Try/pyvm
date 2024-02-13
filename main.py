@@ -8,6 +8,8 @@ import struct
 import random
 from collections import defaultdict
 
+from modules.kbhit import KBHit
+
 uuids = defaultdict(lambda: str(uuid.uuid4()))
 
 try:
@@ -31,34 +33,15 @@ else:
 __name__ = "__PYVM_RUNNER_"+str(random.randint(10000, 99999))+"__"
 
 __buffer = []
-def kbhit():
-    global __buffer
-    if len(__buffer) > 0: return True
+__kbhit = KBHit()
+
+def doch(ch):
     if os.name == 'nt':
-        return msvcrt.kbhit()
-    else:
-        fd = sys.stdin.fileno()
-        old_flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags | os.O_NONBLOCK)
-        hit = bool(fcntl.ioctl(sys.stdin.fileno(), termios.FIONREAD, struct.pack('I', 0)))
-        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags)
-        return hit
-def getch():
-    global __buffer
-    if not kbhit(): return ""
-    if len(__buffer) > 0:
-        return __buffer.pop(0)
-    if os.name == 'nt':
-        ch = msvcrt.getch().decode()
         if ch == "\r":
             return "\n"
         return ch
     else:
-        fd = sys.stdin.fileno()
-        old_flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags | os.O_NONBLOCK)
-        ch = sys.stdin.read(1)
-        fcntl.fcntl(fd, fcntl.F_SETFL, old_flags)
+        if ch == "\x7f": ch = "\b"
         return ch
 
 def trace_exc(trace):
@@ -194,7 +177,9 @@ class HDD(Component):
     def list(self, path):
         root = self.root + self._form_path(path)
         for item in os.listdir(root):
-            if os.path.isfile(root+"/"+item): yield "file", item
+            if os.path.isfile(root+"/"+item):
+                yield "file", item
+                continue
             yield "dir", item
 
 class EEPROM(Component):
@@ -434,8 +419,8 @@ def run(code: str, *, globs=None, fn=None):
     return ret, globs
 
 def keyboard_listener():
-    if not kbhit(): return
-    components.keyboard.pushkey(getch())
+    if not __kbhit.kbhit(): return
+    components.keyboard.pushkey(doch(__kbhit.getch()))
 __shown = -1
 def screen_flusher():
     global __shown
@@ -456,13 +441,16 @@ def shutdowner():
 
     with open("machine/uuids.json", 'w') as f:
         f.write(json.dumps(uuids))
+
+    __kbhit.set_normal_term()
     sys.exit(0)
 
 __lines = 0
-__need_lines = 100
+__need_lines_gpuflush = 100
+__need_lines_kblisten = 1
 __doing_routine = False
 def main_routine_dispatcher(frame, event, arg):
-    global routines, __lines, __need_lines, shutdown, __doing_routine
+    global routines, __lines, shutdown, __doing_routine
     if frame.f_globals["__name__"] == __name__: return None
     if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in routines], main_routine_dispatcher]: return None
 
@@ -480,13 +468,12 @@ def main_routine_dispatcher(frame, event, arg):
     sys.settrace(main_routine_dispatcher)
     __doing_routine = False
 
-    if event != "line" or __lines < __need_lines:
+    if event == "line":
         __lines += 1
-        return main_routine_dispatcher
-
-    screen_flusher()
-    keyboard_listener()
-    __lines = 0
+    if __lines % __need_lines_gpuflush == 0:
+        screen_flusher()
+    if __lines % __need_lines_kblisten == 0:
+        keyboard_listener()
     return main_routine_dispatcher
 
 starttime = time.time()

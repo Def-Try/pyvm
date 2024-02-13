@@ -2,6 +2,8 @@ gpu = components.gpu
 y = 0
 w, h = gpu.get_resolution()
 
+globals()["RUNTIME"] = "I"
+
 def cprint(*stuff):
     global y, h, w, gpu
     if y == h:
@@ -16,6 +18,8 @@ def cprint(*stuff):
 
 def log(text):
     cprint([f"[ {uptime():.6f} ] [", 255, 255, 255], [" OK ", 0, 255, 0], [f"] {text}", 255, 255, 255])
+#    e = uptime()+1
+#    while uptime() < e: pass
 
 cprint([f"[ {uptime():.6f} ] Welcome to ", 255, 255, 255], ["PythOS", 0, 255, 127], ["!", 255, 255, 255])
 
@@ -41,9 +45,15 @@ for type, item in fs.list("/boot"):
     dofile(f"/boot/{item}", fn=f"/boot/{item}")
     log = _log
 
-import io
-import filesystem
+log("Initialising shell...")
 
-log(filesystem.list("/"))
+import shell
+
+shell.init()
+
+globals()["RUNTIME"] = "R"
+
+shell.run()
+
 
 components.computer.shutdown()
