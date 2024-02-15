@@ -1,6 +1,6 @@
 import io
 
-gpu = components.gpu
+gpu = component.gpu
 def __stdout_drawch(stream, data):
     global gpu
     w, h = gpu.get_resolution()

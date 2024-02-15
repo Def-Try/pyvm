@@ -1,2 +1,2 @@
-for component in components.list():
-    log("Prepared component "+str(component))
+for c in component.list():
+    log("Prepared component "+str(c))

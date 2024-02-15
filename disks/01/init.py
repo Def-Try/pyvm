@@ -1,4 +1,4 @@
-gpu = components.gpu
+gpu = component.gpu
 y = 0
 w, h = gpu.get_resolution()
 
@@ -23,7 +23,7 @@ def log(text):
 
 cprint([f"[ {uptime():.6f} ] Welcome to ", 255, 255, 255], ["PythOS", 0, 255, 127], ["!", 255, 255, 255])
 
-fs = components.hdd
+fs = component.hdd
 
 log("Discovered RootFS")
 
@@ -56,4 +56,4 @@ globals()["RUNTIME"] = "R"
 shell.run()
 
 
-components.computer.shutdown()
+component.computer.shutdown()

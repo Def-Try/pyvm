@@ -1,7 +1,7 @@
 import io
 
 def init():
-    components.gpu.clear()
+    component.gpu.clear()
 
 def input(prompt="", echo=True):
     io.stdout.write(prompt)
