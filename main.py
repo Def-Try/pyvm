@@ -28,10 +28,6 @@ def doch(ch):
         if ch == "\x7f": ch = "\b"
         return ch
 
-__fds = []
-def mkfile(fd=None):
-    pass
-
 shutdown = 0
 
 __components = components.Components([],
@@ -149,10 +145,12 @@ def run(code: str, *, globs=None, fn=None):
         globs["range"] = range
         globs["enumerate"] = enumerate
         globs["Exception"] = Exception
+        globs["BaseException"] = BaseException
+        globs["ImportError"] = ImportError
         globs["event"] = events
         globs["globals"] = globals
         globs["locals"] = locals
-        globs["mkfile"] = mkfile
+        globs["realtime"] = time.time
 
         globs["event"].pusher("kb_event",_kbevent, (globs["event"], __components.keyboard))
         globs["event"].pusher("ticker", _ticker, (globs["event"], globs["uptime"]))
@@ -203,8 +201,8 @@ def intshutdown(signum=signal.SIGINT, frame=sys._getframe()):
     #shutdowner()
 
 __lines = 0
-__need_lines_gpuflush = 1000
-__need_lines_kblisten = 10
+__need_lines_gpuflush = 10000
+__need_lines_kblisten = 1
 __doing_routine = False
 def main_routine_dispatcher(frame, _event, arg):
     global __lines, shutdown, __doing_routine
