@@ -15,7 +15,7 @@ def importer(name, globals, locals, names, level):
         try:
             mod = dofile(f"{location}/{name}.py", globs=globals, fn=f"{location}/{name}.py")
             break
-        except:
+        except ImportError:
             pass
     if mod is None:
         raise ImportError("Module can not be found.")

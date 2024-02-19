@@ -69,7 +69,14 @@ def run():
             command = inp
             string = ""
         ok = False
-        for location in locations:
+        for location in locations.binaries:
             try:
-                dofile(location+"/"+command, fn=location+"/"+command)
+                dofile(location+"/"+command+".py", fn=location+"/"+command)
                 ok = True
+            except Exception as e:
+                try:
+                    dofile(location+"/"+command, fn=location+"/"+command)
+                    ok = True
+                except Exception as e: pass
+        if not ok:
+            print("sh: no such file or directory: "+command)

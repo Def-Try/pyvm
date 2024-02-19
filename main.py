@@ -150,7 +150,7 @@ def run(code: str, *, globs=None, fn=None):
         globs["event"] = events
         globs["globals"] = globals
         globs["locals"] = locals
-        globs["realtime"] = time.time
+        globs["realtime"] = lambda: time.mktime(time.localtime())-time.timezone
 
         globs["event"].pusher("kb_event",_kbevent, (globs["event"], __components.keyboard))
         globs["event"].pusher("ticker", _ticker, (globs["event"], globs["uptime"]))

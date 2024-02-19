@@ -65,7 +65,7 @@ event.listen("tick", tick_)
 
 def print(*args):
     for i in args:
-        io.stdout.write(i)
+        io.stdout.write(str(i))
     io.stdout.write("\n")
 
 io.stdout = stdout
