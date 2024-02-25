@@ -63,7 +63,7 @@ def list(path):
             flist.append(["dir", mountpoint.split("/")[-1]])
     for i in flist: yield i
 
-def open(path):
+def open(path, mode='r'):
     if not exists(path): raise FSException(f"No such file or directory: {path}")
     drive, path = to_real_path(path)
-    return drive.open(path)
+    return drive.open(path, mode=mode)

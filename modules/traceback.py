@@ -8,9 +8,9 @@ def trace_exc(trace):
     if trace.tb_next:
         traceback += trace_exc(trace.tb_next) + "\n"
     traceback += f"File {trace.tb_frame.f_code.co_filename} line {trace.tb_lineno}"
-    line = linecache.getline(trace.tb_frame.f_code.co_filename, trace.tb_lineno, trace.tb_frame.f_globals)
-    if line:
-        traceback += f"\n{line.strip()}"
+#    line = linecache.getline(trace.tb_frame.f_code.co_filename, trace.tb_lineno, trace.tb_frame.f_globals)
+#    if line:
+#        traceback += f"\n{line.strip()}"
     return traceback
 
 def format_exception(e):

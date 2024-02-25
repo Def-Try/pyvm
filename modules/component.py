@@ -152,9 +152,9 @@ class EEPROM(Component):
 class Computer(Component):
     def __init__(self):
         super().__init__("Computer", "googerlabs CreatCase", uuids["computer"])
+        self.shut = 0
     def shutdown(self):
-        global shutdown
-        shutdown = 1
+        self.shut = 1
 
 class Keyboard(Component):
     def __init__(self):

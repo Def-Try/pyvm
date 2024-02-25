@@ -28,7 +28,7 @@ def doch(ch):
         if ch == "\x7f": ch = "\b"
         return ch
 
-shutdown = 0
+__shown = -1
 
 __components = components.Components([],
     {"cpu": component.CPU,
@@ -54,8 +54,6 @@ starttime = 0
 def uptime(): return time.time() - starttime
 
 def error(*message):
-    global shutdown
-
     message = [i.split("\n") for i in message]
     msg = []
     for m in message:
@@ -71,7 +69,7 @@ def error(*message):
         line = str(line).strip()
         x = int(w / 2 - len(line) / 2)
         __components.gpu.set(x, y+n, line)
-    shutdown = 1
+    __components.computer.shut = 1
 
 def _kbevent(event, keyboard):
     k = keyboard.pullkey()
@@ -104,16 +102,17 @@ def dostring(code: str, *, globs=None, fn=None):
     return globs
 
 def run(code: str, *, globs=None, fn=None):
-    global components
-    global dofile
-
     uninitedglobs = not globs
-    globs = globs or {}
+    rglobs = globs
+    globs = globs if globs else {}
 
     def _unimport(*args, **kwargs): raise ImportError("Package management not ready")
     def _dostring(code, globs=globs, fn=None): return dostring(code, globs=globs, fn=fn)
-    def _globals(): return globs
+    def _globals(): return {**rglobs, **globs}
     def _locals(): return locs
+    def exc_info():
+        e = sys.exc_info()
+        return [e[0], e[1], e[2].tb_next]
     globs["__source__"] = code
     class _loader:
         def get_source(self, fullname):
@@ -146,10 +145,13 @@ def run(code: str, *, globs=None, fn=None):
         globs["enumerate"] = enumerate
         globs["Exception"] = Exception
         globs["BaseException"] = BaseException
+        globs["FileNotFoundError"] = FileNotFoundError
         globs["ImportError"] = ImportError
         globs["event"] = events
         globs["globals"] = globals
         globs["locals"] = locals
+        globs["exc_info"] = exc_info
+        globs["traceback"] = traceback
         globs["realtime"] = lambda: time.mktime(time.localtime())-time.timezone
 
         globs["event"].pusher("kb_event",_kbevent, (globs["event"], __components.keyboard))
@@ -169,16 +171,14 @@ def run(code: str, *, globs=None, fn=None):
 def keyboard_listener():
     if not __kbhit.kbhit(): return
     __components.keyboard.pushkey(doch(__kbhit.getch()))
-__shown = -1
 def screen_flusher():
     global __shown
     print("\033[F" * (__shown + 1))
     __shown = __components.gpu.show()
     print()
 def vm_runner():
-    global shutdown
     ret = dofile(__components.eeprom.bios_path)
-    shutdown = -1 if shutdown == 0 else shutdown
+    __components.computer.shut = -1 if __components.computer.shut == 0 else __components.computer.shut
     return ret
 def shutdowner():
     sys.settrace(None)
@@ -194,10 +194,9 @@ def shutdowner():
     sys.exit(0)
 
 def intshutdown(signum=signal.SIGINT, frame=sys._getframe()):
-    global shutdown
     signal.signal(signum, signal.SIG_IGN)
     error("KeyboardInterrupt")
-    shutdown = -1
+    __components.computer.shut = -1
     #shutdowner()
 
 __lines = 0
@@ -205,11 +204,11 @@ __need_lines_gpuflush = 10000
 __need_lines_kblisten = 1
 __doing_routine = False
 def main_routine_dispatcher(frame, _event, arg):
-    global __lines, shutdown, __doing_routine
+    global __lines, __doing_routine
     if frame.f_globals["__name__"] == __name__: return None
     if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in event.routines], main_routine_dispatcher]: return None
 
-    if shutdown:
+    if __components.computer.shut:
         shutdowner()
         return None
 

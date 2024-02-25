@@ -46,8 +46,8 @@ def __stdin(stream, amount):
     stream.data = stream.data[amount:]
     return data
 
-stdout = IOStream("wo", __stdout, None)
-stdin = IOStream("ro", None, __stdin)
+stdout = io.IOStream("wo", __stdout, None)
+stdin = io.IOStream("ro", None, __stdin)
 stdout.x, stdout.y = 0, 0
 stdin.data = ""
 def keyboard_(event):
@@ -70,3 +70,5 @@ def print(*args):
 
 io.stdout = stdout
 io.stdin = stdin
+
+globals()["print"] = print
