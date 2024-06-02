@@ -15,7 +15,7 @@ def __stdout_drawch(stream, data):
             stream.x = 0
             if stream.y >= h:
                 while stream.y >= h:
-                    gpu.copy(0, 1, w, h, 0, 0)
+                    gpu.copy(0, 1, w+1, h+1, 0, 0)
                     gpu.fill(0, h-1, w, 1, " ")
                     stream.y -= 1
             return
@@ -32,6 +32,14 @@ def __stdout_drawch(stream, data):
             return
         if data == "\t":
             stream.x = ((stream.x // 8) + 1) * 8
+            if stream.x >= w:
+                stream.y += 1
+                stream.x = 0
+                if stream.y >= h:
+                    while stream.y >= h:
+                        gpu.copy(0, 1, w+1, h+1, 0, 0)
+                        gpu.fill(0, h-1, w, 1, " ")
+                        stream.y -= 1
             return
         gpu.set(stream.x, stream.y, data)
         stream.x += 1
@@ -40,7 +48,7 @@ def __stdout_drawch(stream, data):
             stream.x = 0
             if stream.y >= h:
                 while stream.y >= h:
-                    gpu.copy(0, 1, w, h, 0, 0)
+                    gpu.copy(0, 1, w+1, h+1, 0, 0)
                     gpu.fill(0, h-1, w, 1, " ")
                     stream.y -= 1
         return

@@ -73,7 +73,7 @@ def isdirectory(path):
     if not exists(parent(path)): raise FSException(f"No such file or directory: {path}")
     flist = _list(list(parent(path)))
     if _list(iterate(canonalize(path)))[-1] == '' and len(_list(iterate(canonalize(path)))) == 2: return True
-    return ["dir", _list(iterate(canonalize(path)))[-1]] in flist
+    return ("dir", _list(iterate(canonalize(path)))[-1]) in flist
 
 def mkdir(path):
     if not exists(parent(path)): raise FSException(f"No such directory: {path}")

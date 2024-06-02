@@ -2,8 +2,11 @@ import io
 import filesystem
 import locations
 
+ENV = {}
+
 def init():
-    pass
+    global ENV
+    ENV = {"cwd": "/"}
 
 def parse(string):
     flags = [""]
@@ -38,6 +41,7 @@ def parse(string):
     return [i.strip() for i in flags], [i.strip() for i in args]
 
 def run(fallback=False):
+    global ENV
     if not fallback:
         for type,file in filesystem.list("/etc/autorun"):
             if type == "dir": continue
@@ -64,12 +68,12 @@ def run(fallback=False):
         for location in locations.binaries:
             try:
                 prg = dofile(location+"/"+command+".py", fn=location+"/"+command+".py")
-                if prg.get("main"): prg.get("main")(string, *parse(string))
+                if prg.get("main"): prg.get("main")(string, *parse(string), ENV)
                 ok = True
             except Exception as e:
                 try:
                     prg = dofile(location+"/"+command, fn=location+"/"+command)
-                    if prg.get("main"): prg.get("main")(string, *parse(string))
+                    if prg.get("main"): prg.get("main")(string, *parse(string), ENC)
                     ok = True
                 except Exception as e: pass
         if not ok:
