@@ -173,7 +173,6 @@ def keyboard_listener():
     __components.keyboard.pushkey(doch(__kbhit.getch()))
 def screen_flusher():
     global __shown
-    print("\033[F" * (__shown + 1))
     __shown = __components.gpu.show()
     print()
 def vm_runner():

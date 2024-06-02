@@ -18,51 +18,170 @@ class CPU(Component):
     def __init__(self):
         super().__init__("CPU", "GDT Rapid 8800K", uuids["cpu"])
 
-class GPU(Component):
-    def __init__(self):
-        super().__init__("GPU", "googerlabs TGPU X5", uuids["gpu"])
-        self.resolution = (1, 1)
-        self.set_background(0, 0, 0)
-        self.set_foreground(0, 255, 0)
+class BufBit:
+    def __init__(self, br, bg, bb, fr, fg, fb, chr):
+        self.br = br
+        self.bg = bg
+        self.bb = bb
+        self.fr = fr
+        self.fg = fg
+        self.fb = fb
+        self.chr = chr
+
+    def same(self, other):
+        return \
+            self.br == other.br and \
+            self.bg == other.bg and \
+            self.bb == other.bb and \
+            self.fr == other.fr and \
+            self.fg == other.fg and \
+            self.fb == other.fb and \
+            self.chr == other.chr
+
+    @staticmethod
+    def default():
+        return BufBit(0, 0, 0, 255, 255, 255, ' ')
+
+class ImgBuf:
+    def __init__(self, width, height):
+        self.buf = [0 for _ in range(width * height * 7)]
+        self.width = width
+        self.height = height
         self.clear()
 
     def clear(self):
-        self.screen = []
-        for y in range(self.resolution[1]):
-            self.screen.append([])
-            for x in range(self.resolution[0]):
-                self.screen[y].append(self.Pget_ansi_codes()+" \033[0m")
+        for x in range(self.width):
+            for y in range(self.height):
+                cursor = (x + y * self.width) * 7
+                self.buf[cursor]     = 0
+                self.buf[cursor + 1] = 0
+                self.buf[cursor + 2] = 0
+                self.buf[cursor + 3] = 255
+                self.buf[cursor + 4] = 255
+                self.buf[cursor + 5] = 255
+                self.buf[cursor + 6] = ' '
+
+    def fill_bg(self, r, g, b):
+        for x in range(self.width):
+            for y in range(self.height):
+                cursor = (x + y * self.width) * 7
+                self.buf[cursor]     = r
+                self.buf[cursor + 1] = g
+                self.buf[cursor + 2] = b
+
+    def fill_fg(self, r, g, b, chr = ' '):
+        for x in range(self.width):
+            for y in range(self.height):
+                cursor = (x + y * self.width) * 7
+                self.buf[cursor + 3] = r
+                self.buf[cursor + 4] = g
+                self.buf[cursor + 5] = b
+                self.buf[cursor + 6] = chr
+
+    def insert(self, x, y, ref):
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            return
+
+        cursor = (x + y * self.width) * 7
+
+        self.buf[cursor]     = ref.br
+        self.buf[cursor + 1] = ref.bg
+        self.buf[cursor + 2] = ref.bb
+        self.buf[cursor + 3] = ref.fr
+        self.buf[cursor + 4] = ref.fg
+        self.buf[cursor + 5] = ref.fb
+        self.buf[cursor + 6] = ref.chr
+
+    def at(self, x, y, ref):
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            return
+
+        cursor = (x + y * self.width) * 7
+
+        ref.br  = self.buf[cursor]
+        ref.bg  = self.buf[cursor + 1]
+        ref.bb  = self.buf[cursor + 2]
+        ref.fr  = self.buf[cursor + 3]
+        ref.fg  = self.buf[cursor + 4]
+        ref.fb  = self.buf[cursor + 5]
+        ref.chr = self.buf[cursor + 6]
+
+    def copy_to(self, buf):
+        buf.buf = self.buf.copy()
+        buf.width = self.width
+        buf.height = self.height
+
+    def copy(self):
+        buf = ImgBuf(self.width, self.height)
+        self.copy_to(buf)
+        return buf
+
+    def same_res(self, other):
+        return self.width == other.width and self.height == other.height
+
+    def each(self, bit = None):
+        if bit is None:
+            bit = BufBit.default()
+        for y in range(self.height):
+            for x in range(self.width):
+                self.at(x, y, bit)
+                yield x, y, bit
+
+class GPU(Component):
+    def __init__(self):
+        super().__init__("GPU", "googerlabs TGPU X5", uuids["gpu"])
+
+        self.buffer = ImgBuf(1, 1)
+        self.bit = BufBit.default()
+        self.prev_buf = None
+
+    def clear(self):
+        self.buffer.clear()
 
     def show(self):
-        e = ""
-        scr = self.screen.copy()
-        for line in scr:
-            e += "".join(line) + "\n"
-        sys.stdout.write(e.strip())
-        sys.stdout.flush()
-        return len(scr)
+        buffer = "\033[H"
+
+        if self.prev_buf is None or not self.prev_buf.same_res(self.buffer):
+            self.prev_buf = self.buffer.copy()
+            for x, y, bit in self.buffer.each():
+                if x == 0 and y != 0:
+                    buffer += "\n"
+                buffer += f"\033[38;2;{bit.fr};{bit.fg};{bit.fb}m\033[48;2;{bit.br};{bit.bg};{bit.bb}m{bit.chr}"
+        else:
+            other = BufBit.default()
+            last = (-1, -1)
+            for x, y, bit in self.buffer.each():
+                self.prev_buf.at(x, y, other)
+                if other.same(bit):
+                    self.prev_buf.insert(x, y, bit)
+                    continue
+                if y == last[1]:
+                    if x + 1 != last[0]:
+                        buffer += f"\033[{last[0] - x}C"
+                else:
+                    buffer += f"\033[{y};{x}H" # xterm starts at 1, not 0!
+                buffer += f"\033[38;2;{bit.fr};{bit.fg};{bit.fb}m\033[48;2;{bit.br};{bit.bg};{bit.bb}m{bit.chr}"
+                last = (x, y)
+
+        print(buffer, end="", flush=True)
+        return len(buffer)
 
     def set_resolution(self, width, height):
-        self.resolution = (width, height)
-        self.screen = self.screen[:height]
-        for y in range(max(0, height - len(self.screen))):
-            self.screen.append([])
-            for x in range(width):
-                self.screen[-1].append(self.Pget_ansi_codes()+" \033[0m")
-        for y in range(height):
-            self.screen[y] = self.screen[y][:width] + [self.Pget_ansi_codes()+" \033[0m"] * max(0, width - len(self.screen[y]))
+        self.buffer = ImgBuf(width, height)
 
-    def get_resolution(self): return (*self.resolution,)
+    def get_resolution(self): return (self.buffer.width, self.buffer.height)
 
     def max_resolution(self): return (*(i-2 if n == 1 else i for n,i in enumerate(os.get_terminal_size())),)
 
     def set(self, x, y, string):
         string = str(string)
         for ch in str(string):
-            try:
-                self.screen[y][x] = self.Pget_ansi_codes()+self.Pcleanise(ch)+"\033[0m"
-            except: pass
+            self.bit.chr = self.Pcleanise(ch)
+            self.buffer.insert(x, y, self.bit)
             x += 1
+            if x >= self.buffer.width:
+                x = 0
+                y += 1
 
     def fill(self, x, y, w, h, ch):
         if x < 0:
@@ -73,30 +192,25 @@ class GPU(Component):
             w = self.get_resolution()[0]
         if h > self.get_resolution()[1]:
             h = self.get_resolution()[1]
+        self.bit.chr = ch
         for ox in range(w):
             for oy in range(h):
-                try:
-                    self.screen[y+oy][x+ox] = self.Pget_ansi_codes()+self.Pcleanise(ch)+"\033[0m"
-                except IndexError: pass
+                self.buffer.insert(x+ox, y+oy, self.bit)
 
     def copy(self, x1, y1, w, h, x2, y2):
-        screen = self.screen.copy()
+        buf = self.buffer.copy()
         for ox in range(w):
             for oy in range(h):
-                try:
-                    self.screen[y2+oy][x2+ox] = screen[y1+oy][x1+ox]
-                except IndexError: pass
+                buf.at(x1+ox, y1+oy, self.bit)
+                self.buffer.insert(x2+ox, y2+oy, self.bit)
 
-    def set_foreground(self, r, g, b): self.fr, self.fg, self.fb = r, g, b
+    def set_foreground(self, r, g, b): self.bit.fr, self.bit.fg, self.bit.fb = r, g, b
 
-    def set_background(self, r, g, b): self.br, self.bg, self.bb = r, g, b
+    def set_background(self, r, g, b): self.bit.br, self.bit.bg, self.bit.bb = r, g, b
 
-    def get_foreground(self): return self.fr, self.fg, self.fb
+    def get_foreground(self): return self.bit.fr, self.bit.fg, self.bit.fb
 
-    def get_background(self): return self.br, self.bg, self.bb
-
-    def Pget_ansi_codes(self):
-        return f"\033[38;2;{self.fr};{self.fg};{self.fb}m\033[48;2;{self.br};{self.bg};{self.bb}m"
+    def get_background(self): return self.bit.br, self.bit.bg, self.bit.bb
 
     def Pcleanise(self, char):
         return char.replace("\n", "").replace("\r", "").replace("\b", "")
