@@ -144,10 +144,15 @@ class GPU(Component):
 
         if self.prev_buf is None or not self.prev_buf.same_res(self.buffer):
             self.prev_buf = self.buffer.copy()
+            lastcol = (-1, -1, -1, -1, -1, -1)
             for x, y, bit in self.buffer.each():
                 if x == 0 and y != 0:
                     buffer += "\n"
-                buffer += f"\033[38;2;{bit.fr};{bit.fg};{bit.fb}m\033[48;2;{bit.br};{bit.bg};{bit.bb}m{bit.chr}"
+                col = (bit.fr, bit.fg, bit.fb, bit.br, bit.bg, bit.bb)
+                if col is not lastcol:
+                    buffer += f"\033[38;2;{bit.fr};{bit.fg};{bit.fb}m\033[48;2;{bit.br};{bit.bg};{bit.bb}m"
+                    lastcol = col
+                buffer += bit.chr
         else:
             other = BufBit.default()
             last = (-1, -1)
