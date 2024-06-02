@@ -173,6 +173,7 @@ def keyboard_listener():
     __components.keyboard.pushkey(doch(__kbhit.getch()))
 def screen_flusher():
     global __shown
+    print("\033[F" * (__shown + 1))
     __shown = __components.gpu.show()
     print()
 def vm_runner():
@@ -232,7 +233,7 @@ def main_routine_dispatcher(frame, _event, arg):
     __doing_routine = True
     sys.settrace(None)
     if __last_gpuflush == None: __last_gpuflush = uptime()
-    if uptime() - __last_gpuflush > 1 / 10:
+    if uptime() - __last_gpuflush > 1 / 60:
         screen_flusher()
         __last_gpuflush = uptime()
 #    if __lines % __need_lines_kblisten == 0:
