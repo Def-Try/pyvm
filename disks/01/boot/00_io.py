@@ -76,7 +76,7 @@ def tick_(_):
     global fill
     if not should_blink: return
     fill = not fill
-    stdout.write("#" if not fill else " ")
+    stdout.write("█" if not fill else " ")
     stdout.write("\b")
 event.listen("key_pushed", keyboard_)
 event.listen("tick", tick_)

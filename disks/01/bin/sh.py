@@ -4,6 +4,13 @@ import locations
 
 ENV = {}
 
+builtins = {}
+exit_now = False
+def exit(raw):
+    global exit_now
+    exit_now = True
+builtins["exit"] = exit
+
 def init():
     global ENV
     ENV = {"cwd": "/"}
@@ -41,7 +48,7 @@ def parse(string):
     return [i.strip() for i in flags], [i.strip() for i in args]
 
 def run(fallback=False):
-    global ENV
+    global ENV, exit_now
     if not fallback:
         for type,file in filesystem.list("/etc/autorun"):
             if type == "dir": continue
@@ -55,7 +62,7 @@ def run(fallback=False):
         print("|       !! WARNING !!      |")
         print("| RUNNING IN FALLBACK MODE |")
         print("+--------------------------+")
-    while True:
+    while not exit_now:
         inp = input("$ ")
         if " " in inp:
             command = inp[:inp.index(" ")]
@@ -63,6 +70,9 @@ def run(fallback=False):
         else:
             command = inp
             string = ""
+        if command in builtins:
+            builtins[command](string)
+            continue
         if command.strip() == '': continue
         ok = False
         for location in locations.binaries:
@@ -78,3 +88,7 @@ def run(fallback=False):
                 except Exception as e: pass
         if not ok:
             print("sh: no such file or directory: "+command)
+    exit_now = False
+
+def main(raw, flags, args, env):
+    return run(False)
