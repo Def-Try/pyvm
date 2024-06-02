@@ -103,7 +103,8 @@ class GPU(Component):
                 except IndexError: pass
 
     def copy(self, x1, y1, w, h, x2, y2):
-        screen = self.screen.copy()
+        screen  = self.screen .copy()
+        screenc = self.screenc.copy()
         for ox in range(w):
             for oy in range(h):
                 try:

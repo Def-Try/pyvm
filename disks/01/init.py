@@ -24,14 +24,13 @@ def log(text):
 cprint([f"[ {uptime():.6f} ] Welcome to ", 255, 255, 255], ["PythOS", 0, 255, 127], ["!", 255, 255, 255])
 
 fs = component.hdd
-
-log("Discovered RootFS")
-
 def dofile(path, globs=globals(), fn=None):
     file = fs.open(path)
     code = file.read()
     file.close()
     return dostring(code, globs=globs, fn=fn)
+
+log("Discovered RootFS")
 
 dofile("/lib/package.py")
 log("Package management ready")
@@ -45,11 +44,21 @@ for type, item in fs.list("/boot"):
     dofile(f"/boot/{item}", fn=f"/boot/{item}")
     log = _log
 
-log("Initialising shell...")
-
+log("Initialising IO...")
 import io
 io.stdout.y = y + 1
 
+log("Initialising filesystem...")
+import filesystem
+def dofile(path, globs=globals(), fn=None):
+    file = filesystem.open(path)
+    code = file.read()
+    file.close()
+    return dostring(code, globs=globs, fn=fn)
+
+
+
+log("Initialising Shell...")
 import shell
 
 shell.init()
