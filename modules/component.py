@@ -137,6 +137,7 @@ class GPU(Component):
 
     def clear(self):
         self.buffer.clear()
+        self.prev_buf = None
 
     def show(self):
         buffer = "\033[H"
@@ -150,17 +151,22 @@ class GPU(Component):
         else:
             other = BufBit.default()
             last = (-1, -1)
+            lastcol = (-1, -1, -1, -1, -1, -1)
             for x, y, bit in self.buffer.each():
                 self.prev_buf.at(x, y, other)
-                if other.same(bit):
+                if not other.same(bit):
                     self.prev_buf.insert(x, y, bit)
                     continue
                 if y == last[1]:
                     if x + 1 != last[0]:
                         buffer += f"\033[{last[0] - x}C"
                 else:
-                    buffer += f"\033[{y};{x}H" # xterm starts at 1, not 0!
-                buffer += f"\033[38;2;{bit.fr};{bit.fg};{bit.fb}m\033[48;2;{bit.br};{bit.bg};{bit.bb}m{bit.chr}"
+                    buffer += f"\033[{y+1};{x+1}H" # xterm starts at 1, not 0!
+                col = (bit.fr, bit.fg, bit.fb, bit.br, bit.bg, bit.bb)
+                if col is not lastcol:
+                    buffer += f"\033[38;2;{bit.fr};{bit.fg};{bit.fb}m\033[48;2;{bit.br};{bit.bg};{bit.bb}m"
+                    lastcol = col
+                buffer += bit.chr
                 last = (x, y)
 
         print(buffer, end="", flush=True)
@@ -174,14 +180,10 @@ class GPU(Component):
     def max_resolution(self): return (*(i-2 if n == 1 else i for n,i in enumerate(os.get_terminal_size())),)
 
     def set(self, x, y, string):
-        string = str(string)
         for ch in str(string):
             self.bit.chr = self.Pcleanise(ch)
             self.buffer.insert(x, y, self.bit)
             x += 1
-            if x >= self.buffer.width:
-                x = 0
-                y += 1
 
     def fill(self, x, y, w, h, ch):
         if x < 0:
