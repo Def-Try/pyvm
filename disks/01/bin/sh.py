@@ -3,22 +3,7 @@ import filesystem
 import locations
 
 def init():
-    component.gpu.clear()
-
-def input(prompt="", echo=True):
-    io.stdout.write(prompt)
-    _ = ""
-    while True:
-        __ = io.stdin.read()
-        if __ == "\b":
-            _ = _[:-1]
-            if echo:
-                io.stdout.write("\b \b")
-            continue
-        if echo:
-            io.stdout.write(__)
-        if __ == "\n": return _
-        _ += __
+    pass
 
 def parse(string):
     flags = [""]
@@ -52,30 +37,39 @@ def parse(string):
             args[-1] += ch
     return [i.strip() for i in flags], [i.strip() for i in args]
 
-def run():
-    for type,file in filesystem.list("/etc/autorun/"):
-        if type == "dir": continue
-        if not file.endswith(".py"): continue
-        try:
-            dofile("/etc/autorun/"+file, fn="/etc/autorun/"+file)
-        except Exception as e:
-            print(f"Failed to run /etc/autorun/{file}: {e}")
+def run(fallback=False):
+    if not fallback:
+        for type,file in filesystem.list("/etc/autorun"):
+            if type == "dir": continue
+            if not file.endswith(".py"): continue
+            try:
+                dofile("/etc/autorun/"+file, fn="/etc/autorun/"+file)
+            except Exception as e:
+                print(f"Failed to run /etc/autorun/{file}: {e}")
+    else:
+        print("+--------------------------+")
+        print("|       !! WARNING !!      |")
+        print("| RUNNING IN FALLBACK MODE |")
+        print("+--------------------------+")
     while True:
         inp = input("$ ")
         if " " in inp:
             command = inp[:inp.index(" ")]
-            string = inp[len(command):]
+            string = inp[len(command)+1:]
         else:
             command = inp
             string = ""
+        if command.strip() == '': continue
         ok = False
         for location in locations.binaries:
             try:
-                dofile(location+"/"+command+".py", fn=location+"/"+command)
+                prg = dofile(location+"/"+command+".py", fn=location+"/"+command+".py")
+                if prg.get("main"): prg.get("main")(string, *parse(string))
                 ok = True
             except Exception as e:
                 try:
-                    dofile(location+"/"+command, fn=location+"/"+command)
+                    prg = dofile(location+"/"+command, fn=location+"/"+command)
+                    if prg.get("main"): prg.get("main")(string, *parse(string))
                     ok = True
                 except Exception as e: pass
         if not ok:

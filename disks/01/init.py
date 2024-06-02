@@ -47,6 +47,9 @@ for type, item in fs.list("/boot"):
 
 log("Initialising shell...")
 
+import io
+io.stdout.y = y + 1
+
 import shell
 
 shell.init()

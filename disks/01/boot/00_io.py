@@ -21,9 +21,17 @@ def __stdout_drawch(stream, data):
             return
         if data == "\b":
             stream.x -= 1
+            if stream.x < 0:
+                stream.x = w + stream.x
+                stream.y -= 1
+                if stream.y < 0:
+                    stream.y = h + stream.y
             return
         if data == "\r":
             stream.x = 0
+            return
+        if data == "\t":
+            stream.x = ((stream.x // 8) + 1) * 8
             return
         gpu.set(stream.x, stream.y, data)
         stream.x += 1
@@ -55,20 +63,43 @@ def keyboard_(event):
     stdout.write(" \b")
 
 fill = True
+should_blink = True
 def tick_(_):
     global fill
+    if not should_blink: return
     fill = not fill
     stdout.write("#" if not fill else " ")
     stdout.write("\b")
 event.listen("key_pushed", keyboard_)
 event.listen("tick", tick_)
 
-def print(*args):
-    for i in args:
-        io.stdout.write(str(i))
-    io.stdout.write("\n")
-
 io.stdout = stdout
 io.stdin = stdin
 
+def print(*args, sep="\t", end="\n", file=io.stdout):
+    for i in args:
+        file.write(str(i))
+        file.write(sep)
+    file.write(end)
+
+def input(prompt="", echo=True):
+    io.stdout.write(prompt)
+    _ = ""
+    should_blink = True
+    while True:
+        __ = io.stdin.read(1)
+        if __ == "\b":
+            if _ == "": continue
+            _ = _[:-1]
+            io.stdout.write(" \b\b \b")
+            continue
+        if __ == "\n":
+            should_blink = False
+            io.stdout.write(" \n")
+            return _
+        if echo:
+            io.stdout.write(__)
+        _ += __
+
 globals()["print"] = print
+globals()["input"] = input

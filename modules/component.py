@@ -1,4 +1,5 @@
 import os
+import sys
 
 from modules.uuids import uuids
 from modules.isolation import get_name
@@ -37,7 +38,8 @@ class GPU(Component):
         scr = self.screen.copy()
         for line in scr:
             e += "".join(line) + "\n"
-        print(e.strip(), end="", flush=True)
+        sys.stdout.write(e.strip())
+        sys.stdout.flush()
         return len(scr)
 
     def set_resolution(self, width, height):
@@ -123,6 +125,10 @@ class HDD(Component):
                 yield "file", item
                 continue
             yield "dir", item
+    def mkdir(self, path):
+        path = self.root + self._form_path(path)
+        return os.mkdir(path)
+
 
 class EEPROM(Component):
     def __init__(self, bios_path, data_path):

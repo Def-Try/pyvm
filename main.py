@@ -92,13 +92,10 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-def dofile(filepath: str):
-    with open(filepath, 'r', encoding="utf-8") as f:
-        code = f.read()
-    return dostring(code, fn=filepath)
-
 def dostring(code: str, *, globs=None, fn=None):
-    _, globs = run(code, globs=globs, fn=fn)
+    #_, globs = run(code, globs=globs, fn=fn)
+    compiled = compile(code, fn or "<dostring>", "exec")
+    ret = exec(compiled, globs)
     return globs
 
 def run(code: str, *, globs=None, fn=None):
@@ -132,6 +129,9 @@ def run(code: str, *, globs=None, fn=None):
             ptbs("__build_class__", __builtins__.__build_class__)
             ptbs("isinstance", __builtins__.isinstance)
         ptbs("object", object)
+        ptbs("hasattr", hasattr)
+        ptbs("setattr", setattr)
+        ptbs("getattr", getattr)
         ptbs("__name__", "__pyvm__")
         globs["__loader__"] = _loader()
         globs["__name__"] = "__pyvm__"
@@ -177,7 +177,10 @@ def screen_flusher():
     __shown = __components.gpu.show()
     print()
 def vm_runner():
-    ret = dofile(__components.eeprom.bios_path)
+    with open(__components.eeprom.bios_path, 'r', encoding="utf-8") as f:
+        code = f.read()
+    ret = run(code, fn=__components.eeprom.bios_path)
+
     __components.computer.shut = -1 if __components.computer.shut == 0 else __components.computer.shut
     return ret
 def shutdowner():
@@ -191,7 +194,8 @@ def shutdowner():
         f.write(json.dumps(uuids.uuids))
 
     __kbhit.set_normal_term()
-    sys.exit(0)
+    # sys.exit(0)
+    os._exit(0)
 
 def intshutdown(signum=signal.SIGINT, frame=sys._getframe()):
     signal.signal(signum, signal.SIG_IGN)
@@ -203,20 +207,20 @@ __lines = 0
 __need_lines_gpuflush = 10000
 __need_lines_kblisten = 1
 __doing_routine = False
+__last_gpuflush = None
 def main_routine_dispatcher(frame, _event, arg):
-    global __lines, __doing_routine
+    global __lines, __doing_routine, __last_gpuflush
     if frame.f_globals["__name__"] == __name__: return None
     if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in event.routines], main_routine_dispatcher]: return None
 
     if __components.computer.shut:
         shutdowner()
-        return None
+        return main_routine_dispatcher
 
     if __doing_routine: return None
 
     __doing_routine = True
     sys.settrace(None)
-    a = time.perf_counter()
     for routine in event.routines:
         routine[0](*routine[1])
     sys.settrace(main_routine_dispatcher)
@@ -224,10 +228,18 @@ def main_routine_dispatcher(frame, _event, arg):
 
     if _event == "line":
         __lines += 1
-    if __lines % __need_lines_gpuflush == 0:
+#    if __lines % __need_lines_gpuflush == 0:
+#        screen_flusher()
+    __doing_routine = True
+    sys.settrace(None)
+    if __last_gpuflush == None: __last_gpuflush = uptime()
+    if uptime() - __last_gpuflush > 1 / 10:
         screen_flusher()
-    if __lines % __need_lines_kblisten == 0:
-        keyboard_listener()
+        __last_gpuflush = uptime()
+#    if __lines % __need_lines_kblisten == 0:
+    keyboard_listener()
+    sys.settrace(main_routine_dispatcher)
+    __doing_routine = False
     return main_routine_dispatcher
 
 starttime = time.time()

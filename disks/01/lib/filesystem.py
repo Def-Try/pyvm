@@ -1,5 +1,6 @@
 mounts = {}
-_list = list
+if "_list" not in locals():
+    _list = list
 
 class FSException(Exception): pass
 
@@ -67,3 +68,15 @@ def open(path, mode='r'):
     if not exists(path): raise FSException(f"No such file or directory: {path}")
     drive, path = to_real_path(path)
     return drive.open(path, mode=mode)
+
+def isdirectory(path):
+    if not exists(parent(path)): raise FSException(f"No such file or directory: {path}")
+    flist = _list(list(parent(path)))
+    if _list(iterate(canonalize(path)))[-1] == '' and len(_list(iterate(canonalize(path)))) == 2: return True
+    return ["dir", _list(iterate(canonalize(path)))[-1]] in flist
+
+def mkdir(path):
+    if not exists(parent(path)): raise FSException(f"No such directory: {path}")
+    if not isdirectory(parent(path)): raise FSException(f"Specified path is not a directory")
+    drive, path = to_real_path(path)
+    return drive.mkdir(path)

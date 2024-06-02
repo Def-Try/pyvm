@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict
 from modules.isolation import get_name
+import uuid
 
 __name__ = get_name()
 
