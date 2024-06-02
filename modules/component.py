@@ -27,30 +27,51 @@ class GPU(Component):
         self.clear()
 
     def clear(self):
-        self.screen = []
+        self.screen  = []
+        self.screenc = []
+        self.buffer  = None
+        self.bufferc = None
         for y in range(self.resolution[1]):
-            self.screen.append([])
+            self.screen .append([])
+            self.screenc.append([])
             for x in range(self.resolution[0]):
-                self.screen[y].append(self.Pget_ansi_codes()+" \033[0m")
+                self.screen [y].append(" ")
+                self.screenc[y].append([self.get_background(), self.get_foreground()])
 
     def show(self):
-        e = ""
-        scr = self.screen.copy()
-        for line in scr:
-            e += "".join(line) + "\n"
-        sys.stdout.write(e.strip())
-        sys.stdout.flush()
-        return len(scr)
+        if self.buffer == None:
+            e = ""
+            fg, bg = None, None
+            for coline, line in zip(self.screenc, self.screen):
+                for clr, smb in zip(coline, line):
+                    if clr[1] != fg:
+                        fg = clr[1]
+                        e += f"\033[38;2;{';'.join([str(i) for i in fg])}m"
+                    if clr[0] != bg:
+                        bg = clr[0]
+                        e += f"\033[48;2;{';'.join([str(i) for i in bg])}m"
+                    e += smb
+                e += '\n'
+            e = e[:-1]
+            sys.stdout.write(e)
+            sys.stdout.flush()
+#            self.buffer  = list(self.screen )
+#            self.bufferc = list(self.screenc)
+            return len(self.screen) + 2
 
     def set_resolution(self, width, height):
         self.resolution = (width, height)
-        self.screen = self.screen[:height]
+        self.screen  = self.screen [:height]
+        self.screenc = self.screenc[:height]
         for y in range(max(0, height - len(self.screen))):
-            self.screen.append([])
+            self.screen .append([])
+            self.screenc.append([])
             for x in range(width):
-                self.screen[-1].append(self.Pget_ansi_codes()+" \033[0m")
+                self.screen [-1].append(" ")
+                self.screenc[-1].append([self.get_background(), self.get_foreground()])
         for y in range(height):
-            self.screen[y] = self.screen[y][:width] + [self.Pget_ansi_codes()+" \033[0m"] * max(0, width - len(self.screen[y]))
+            self.screen [y] = self.screen [y][:width] + [" "] * max(0, width - len(self.screen [y]))
+            self.screenc[y] = self.screenc[y][:width] + [[self.get_background(), self.get_foreground()]] * max(0, width - len(self.screenc[y]))
 
     def get_resolution(self): return (*self.resolution,)
 
@@ -60,7 +81,8 @@ class GPU(Component):
         string = str(string)
         for ch in str(string):
             try:
-                self.screen[y][x] = self.Pget_ansi_codes()+self.Pcleanise(ch)+"\033[0m"
+                self.screen [y][x] = self.Pcleanise(ch)
+                self.screenc[y][x] = [self.get_background(), self.get_foreground()]
             except: pass
             x += 1
 
@@ -76,7 +98,8 @@ class GPU(Component):
         for ox in range(w):
             for oy in range(h):
                 try:
-                    self.screen[y+oy][x+ox] = self.Pget_ansi_codes()+self.Pcleanise(ch)+"\033[0m"
+                    self.screen [y+oy][x+ox] = self.Pcleanise(ch)
+                    self.screenc[y+oy][x+ox] = [self.get_background(), self.get_foreground()]
                 except IndexError: pass
 
     def copy(self, x1, y1, w, h, x2, y2):
@@ -84,7 +107,8 @@ class GPU(Component):
         for ox in range(w):
             for oy in range(h):
                 try:
-                    self.screen[y2+oy][x2+ox] = screen[y1+oy][x1+ox]
+                    self.screen [y2+oy][x2+ox] = screen [y1+oy][x1+ox]
+                    self.screenc[y2+oy][x2+ox] = screenc[y1+oy][x1+ox]
                 except IndexError: pass
 
     def set_foreground(self, r, g, b): self.fr, self.fg, self.fb = r, g, b
@@ -94,9 +118,6 @@ class GPU(Component):
     def get_foreground(self): return self.fr, self.fg, self.fb
 
     def get_background(self): return self.br, self.bg, self.bb
-
-    def Pget_ansi_codes(self):
-        return f"\033[38;2;{self.fr};{self.fg};{self.fb}m\033[48;2;{self.br};{self.bg};{self.bb}m"
 
     def Pcleanise(self, char):
         return char.replace("\n", "").replace("\r", "").replace("\b", "")
