@@ -86,6 +86,9 @@ class GPU(Component):
             except: pass
             x += 1
 
+    def get(self, x, y):
+        return self.screen[y][x], self.screenc[y][x]
+
     def fill(self, x, y, w, h, ch):
         if x < 0:
             w = w + x

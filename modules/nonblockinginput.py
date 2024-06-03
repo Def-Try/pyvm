@@ -10,7 +10,7 @@ class NonBlockingInput(object):
         self.old = termios.tcgetattr(sys.stdin)
         new = termios.tcgetattr(sys.stdin)
         new[3] = new[3] & ~termios.ICANON & ~termios.ECHO
-        termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, new)
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new)
 
         # set for non-blocking io
         self.orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
@@ -18,7 +18,7 @@ class NonBlockingInput(object):
 
     def __exit__(self, *args):
         # restore terminal to previous state
-        termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, self.old)
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old)
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, self.orig_fl)
 
 if __name__ == "__main__":

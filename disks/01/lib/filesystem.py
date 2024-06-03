@@ -65,7 +65,7 @@ def list(path):
     for i in flist: yield i
 
 def open(path, mode='r'):
-    if not exists(path): raise FSException(f"No such file or directory: {path}")
+    if not exists(path) and (mode == 'r' or mode == 'rb'): raise FSException(f"No such file or directory: {path}")
     drive, path = to_real_path(path)
     return drive.open(path, mode=mode)
 

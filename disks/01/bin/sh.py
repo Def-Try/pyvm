@@ -1,6 +1,7 @@
 import io
 import filesystem
 import locations
+import term
 
 ENV = {}
 
@@ -63,7 +64,8 @@ def run(fallback=False):
         print("| RUNNING IN FALLBACK MODE |")
         print("+--------------------------+")
     while not exit_now:
-        inp = input("$ ")
+        print("$ ", end="")
+        inp = term.read()
         if " " in inp:
             command = inp[:inp.index(" ")]
             string = inp[len(command)+1:]

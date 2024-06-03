@@ -1,4 +1,5 @@
 import io
+import filesystem
 
 gpu = component.gpu
 def __stdout_drawch(stream, data):
@@ -72,12 +73,16 @@ def keyboard_(event):
 
 fill = True
 should_blink = True
+washere = " "
 def tick_(_):
-    global fill
+    global fill, washere
     if not should_blink: return
-    fill = not fill
-    stdout.write("█" if not fill else " ")
-    stdout.write("\b")
+    bg, fg = gpu.get_background(), gpu.get_foreground()
+    gpu.set_background(*gpu.get(stdout.x, stdout.y)[1][1])
+    gpu.set_foreground(*gpu.get(stdout.x, stdout.y)[1][0])
+    gpu.set(stdout.x, stdout.y, gpu.get(stdout.x, stdout.y)[0])
+    gpu.set_background(*bg)
+    gpu.set_foreground(*fg)
 event.listen("key_pushed", keyboard_)
 event.listen("tick", tick_)
 

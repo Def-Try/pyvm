@@ -157,6 +157,9 @@ def run(code: str, *, globs=None, fn=None):
         globs["event"].pusher("kb_event",_kbevent, (globs["event"], __components.keyboard))
         globs["event"].pusher("ticker", _ticker, (globs["event"], globs["uptime"]))
 
+        globs["min"] = min
+        globs["max"] = max
+
         globs["str"] = str
         globs["int"] = int
         globs["float"] = float
