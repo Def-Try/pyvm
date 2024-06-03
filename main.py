@@ -14,10 +14,10 @@ from modules.isolation import set_name
 __name__ = "__PYVM_RUNNER_"+str(random.randint(10000, 99999))+"__"
 set_name(__name__)
 
-from modules import kbhit, traceback, component, components, uuids, event
+from modules import kbhit, traceback, component, components, uuids, event, nonblockinginput
 
+__kbhit = None
 __buffer = []
-__kbhit = kbhit.KBHit()
 
 def doch(ch):
     if os.name == 'nt':
@@ -81,7 +81,7 @@ def _kbevent(event, keyboard):
 __ltick = 0
 def _ticker(event, uptime):
     global __ltick
-    if __ltick + 1.0 > uptime(): return
+    if __ltick + 0.1 > uptime(): return
     event.push(event.create_event("tick"))
     __ltick = uptime()
 
@@ -168,9 +168,17 @@ def run(code: str, *, globs=None, fn=None):
     ret = exec(compiled, globs)
     return ret, globs
 
+__kbhit = kbhit.KBHit()
 def keyboard_listener():
+#        c = sys.stdin.read(1)
+#        __components.keyboard.pushkey(doch(c))
     if not __kbhit.kbhit(): return
-    __components.keyboard.pushkey(doch(__kbhit.getch()))
+    c = 'E'
+    while c != '':
+        c = __kbhit.getch()
+#        print(ord(c), c.encode())
+        if c == '': break
+        __components.keyboard.pushkey(doch(c))
 def screen_flusher():
     global __shown
     print("\033[F" * (__shown + 1))
@@ -229,8 +237,6 @@ def main_routine_dispatcher(frame, _event, arg):
 
     if _event == "line":
         __lines += 1
-#    if __lines % __need_lines_gpuflush == 0:
-#        screen_flusher()
     __doing_routine = True
     sys.settrace(None)
     if __last_gpuflush == None: __last_gpuflush = uptime()
@@ -238,7 +244,10 @@ def main_routine_dispatcher(frame, _event, arg):
         screen_flusher()
         __last_gpuflush = uptime()
 #    if __lines % __need_lines_kblisten == 0:
-    keyboard_listener()
+    # __kbhit.set_unbuffered_term()
+    with nonblockinginput.NonBlockingInput():
+        keyboard_listener()
+    # __kbhit.set_normal_term()
     sys.settrace(main_routine_dispatcher)
     __doing_routine = False
     return main_routine_dispatcher

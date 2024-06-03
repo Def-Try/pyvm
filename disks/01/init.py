@@ -18,8 +18,6 @@ def cprint(*stuff):
 
 def log(text):
     cprint([f"[ {uptime():.6f} ] [", 255, 255, 255], [" OK ", 0, 255, 0], [f"] {text}", 255, 255, 255])
-#    e = uptime()+1
-#    while uptime() < e: pass
 
 cprint([f"[ {uptime():.6f} ] Welcome to ", 255, 255, 255], ["PythOS", 0, 255, 127], ["!", 255, 255, 255])
 
@@ -46,7 +44,6 @@ for type, item in fs.list("/boot"):
 
 log("Initialising IO...")
 import io
-io.stdout.y = y + 1
 
 log("Initialising filesystem...")
 import filesystem
@@ -59,13 +56,11 @@ def dofile(path, globs=globals(), fn=None):
 
 
 log("Initialising Shell...")
+io.stdout.y = y
 import shell
 
 shell.init()
-
 globals()["RUNTIME"] = "R"
-
 shell.run()
-
 
 component.computer.shutdown()
