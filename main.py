@@ -186,6 +186,7 @@ def vm_runner():
 def shutdowner():
     sys.settrace(None)
 
+    print("\033[?25h", end="", flush=True)
     print("\033[F" * (__shown + 1))
     __components.gpu.show()
     print()
@@ -250,6 +251,7 @@ signal.signal(signal.SIGTERM, intshutdown)
 
 sys.settrace(main_routine_dispatcher)
 try:
+    print("\033[?25l", end="", flush=True)
     vm_runner()
 except SystemExit: pass
 except BaseException:
