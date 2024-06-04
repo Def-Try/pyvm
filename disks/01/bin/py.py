@@ -1,11 +1,14 @@
 import filesystem
 import term
+import shell_utils
 
 from codeop import CommandCompiler, compile_command
-import executor
+#import executor
 
-def main(raw, flags, args, env):
-    if len(args) < 1:
+def main(raw, env):
+    flags, args = shell_utils.parse(raw)
+    print(flags, args)
+    if len(args[0]) < 1:
         return interactive()
     """
     path = env.get("cwd") * int(not args[0].startswith("/"))+"/"+args[0]
@@ -41,12 +44,13 @@ def interactive():
         except: pass
         try:
             code = compile(source, "<stdin>")
-        except (OverflowError, SyntaxError, ValueError):
+        except SyntaxError:
             print("Compile error")
             source = ""
         if code is None:
             source += "\n"
-        try:
-            executor.runcompiled(code, locals)
-        except:
-            print("Runtime error")
+        if not source.endswith("\n"):
+            try:
+                executor.runcompiled(code, locals)
+            except:
+                print("Runtime error")

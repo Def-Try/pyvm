@@ -16,38 +16,6 @@ def init():
     global ENV
     ENV = {"cwd": "/"}
 
-def parse(string):
-    flags = [""]
-    args = [""]
-    flag = False
-    one_letter_flag = False
-    for ch in string:
-        if ch == "-":
-            if flag and one_letter_flag:
-                one_letter_flag = False
-                continue
-            if flag and not one_letter_flag:
-                flags[-1] += "-"
-                continue
-            flag = True
-            one_letter_flag = True
-            continue
-        if ch == " ":
-            if flag:
-                flags.append("")
-            else:
-                args.append("")
-            flag = False
-            one_letter_flag = False
-        if flag and not one_letter_flag:
-            flags[-1] += ch
-        elif flag:
-            flags[-1] += ch
-            flags.append("")
-        else:
-            args[-1] += ch
-    return [i.strip() for i in flags], [i.strip() for i in args]
-
 def run(fallback=False):
     global ENV, exit_now
     if not fallback:
@@ -78,19 +46,17 @@ def run(fallback=False):
         if command.strip() == '': continue
         ok = False
         for location in locations.binaries:
-            try:
-                prg = dofile(location+"/"+command+".py", fn=location+"/"+command+".py")
-                if prg.get("main"): prg.get("main")(string, *parse(string), ENV)
+            path = location+"/"+command+".py" if not command.startswith(".") or command.startswith("/") else command
+            print(path, filesystem.exists(path))
+            if filesystem.exists(path):
+                prg = dofile(path, fn=path)
+                if prg.get("main"): prg.get("main")(string, ENV)
                 ok = True
-            except filesystem.FSException as e:
-                try:
-                    prg = dofile(location+"/"+command, fn=location+"/"+command)
-                    if prg.get("main"): prg.get("main")(string, *parse(string), ENC)
-                    ok = True
-                except filesystem.FSException as e: pass
+            if ok or not path.startswith(location): break
         if not ok:
             print("sh: no such file or directory: "+command)
     exit_now = False
+    return 0
 
-def main(raw, flags, args, env):
+def main(raw, env):
     return run(False)

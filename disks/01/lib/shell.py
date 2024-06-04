@@ -13,7 +13,7 @@ def init():
 
 def run():
     try:
-        _sh_bin.run(False)
+        while _sh_bin.run(False) == 0: pass
     except BaseException as e:
         print(f"Failed to run shell {_sh_name}: {e}")
         print(traceback.format_exception(exc_info()))
@@ -21,7 +21,7 @@ def run():
     print("Shell exited. Bailing out. You are now on your own. Good luck")
     err = None
     try:
-        _fallback_bin.run(True)
+        while _fallback_bin.run(True) == 0: pass
     except BaseException as e:
         err = e
     print("Fallback shell exited!")

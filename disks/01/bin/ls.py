@@ -1,7 +1,8 @@
 import filesystem
 import term
-
-def main(raw, flags, args, env):
+import shell_utils
+def main(raw, env):
+    flags, args = shell_utils.parse(raw)
     path = env.get("cwd") * int(not args[0].startswith("/"))+"/"+args[0]
     if not filesystem.exists(path):
         print(f"ls: no such file or directory: {args[0]}")

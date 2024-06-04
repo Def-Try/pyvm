@@ -153,6 +153,7 @@ def run(code: str, *, globs=None, fn=None):
         ptbs("hasattr", hasattr)
         ptbs("setattr", setattr)
         ptbs("getattr", getattr)
+        ptbs("SyntaxError", SyntaxError)
         ptbs("__name__", "__pyvm__")
         globs["__loader__"] = _loader()
         globs["__name__"] = "__pyvm__"

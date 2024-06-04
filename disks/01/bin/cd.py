@@ -1,6 +1,6 @@
 import filesystem
 
-def main(raw, flags, args, env):
+def main(raw, env):
     path = filesystem.canonalize((env.get("cwd", "")*int(not args[0].startswith("/")))+"/"+args[0])
     fpath = ""
     for fpart in filesystem.iterate(path):
