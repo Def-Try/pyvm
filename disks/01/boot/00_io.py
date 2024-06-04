@@ -72,7 +72,7 @@ def keyboard_(event):
     stdout.write(" \b")
 
 fill = True
-should_blink = True
+should_blink = False
 washere = " "
 def tick_(_):
     global fill, washere
@@ -90,9 +90,7 @@ io.stdout = stdout
 io.stdin = stdin
 
 def print(*args, sep="\t", end="\n", file=io.stdout):
-    for i in args:
-        file.write(str(i))
-        file.write(sep)
+    file.write(sep.join(str(i) for i in args))
     file.write(end)
 
 def input(prompt="", echo=True):

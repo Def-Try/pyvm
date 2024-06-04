@@ -57,7 +57,7 @@ class GPU(Component):
             sys.stdout.flush()
 #            self.buffer  = list(self.screen )
 #            self.bufferc = list(self.screenc)
-            return len(self.screen) + 2
+            return len(self.screen)
 
     def set_resolution(self, width, height):
         self.resolution = (width, height)
@@ -78,7 +78,7 @@ class GPU(Component):
     def max_resolution(self): return (*(i-2 if n == 1 else i for n,i in enumerate(os.get_terminal_size())),)
 
     def set(self, x, y, string):
-        string = str(string)
+        string = str(string) or ' '
         for ch in str(string):
             try:
                 self.screen [y][x] = self.Pcleanise(ch)

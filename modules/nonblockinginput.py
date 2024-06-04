@@ -16,16 +16,10 @@ class NonBlockingInput(object):
         self.orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, self.orig_fl | os.O_NONBLOCK)
 
-        # wait for all data to be transmitted
-        termios.tcdrain(sys.stdin)
-
     def __exit__(self, *args):
         # restore terminal to previous state
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old)
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, self.orig_fl)
-
-        # wait for all data to be transmitted
-        termios.tcdrain(sys.stdin)
 
 if __name__ == "__main__":
     with NonBlockingInput():

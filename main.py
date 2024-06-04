@@ -8,6 +8,8 @@ import struct
 import random
 import signal
 import atexit
+import _thread as thread
+import threading
 from collections import defaultdict
 
 from modules.isolation import set_name
@@ -28,6 +30,24 @@ def doch(ch):
         if ch == "\x7f": ch = "\b"
         return ch
 
+def quit_function(fn_name):
+    print('{0} took too long'.format(fn_name), file=sys.stderr)
+    sys.stderr.flush()
+    thread.interrupt_main()
+
+def exit_after(s):
+    def outer(fn):
+        def inner(*args, **kwargs):
+            timer = threading.Timer(s, quit_function, args=[fn.__name__])
+            timer.start()
+            try:
+                result = fn(*args, **kwargs)
+            finally:
+                timer.cancel()
+            return result
+        return inner
+    return outer
+
 __shown = -1
 
 __components = components.Components([],
@@ -40,7 +60,7 @@ __components = components.Components([],
 )
 
 scr = component.GPU()
-scr.set_resolution(75, 25)
+scr.set_resolution(min(85, scr.max_resolution()[0]), min(25, scr.max_resolution()[1]))
 
 __components.connect(component.CPU())
 __components.connect(scr)
@@ -81,7 +101,7 @@ def _kbevent(event, keyboard):
 __ltick = 0
 def _ticker(event, uptime):
     global __ltick
-    if __ltick + 0.1 > uptime(): return
+    if __ltick + 1.0 > uptime(): return
     event.push(event.create_event("tick"))
     __ltick = uptime()
 
@@ -172,21 +192,21 @@ def run(code: str, *, globs=None, fn=None):
     return ret, globs
 
 __kbhit = kbhit.KBHit()
+@exit_after(0.25)
 def keyboard_listener():
-#        c = sys.stdin.read(1)
-#        __components.keyboard.pushkey(doch(c))
     if not __kbhit.kbhit(): return
     c = 'E'
     while c != '':
         c = __kbhit.getch()
-#        print(ord(c), c.encode())
         if c == '': break
         __components.keyboard.pushkey(doch(c))
+@exit_after(0.25)
 def screen_flusher():
     global __shown
-    print("\033[F" * (__shown + 1))
     __shown = __components.gpu.show()
     print()
+#    print("\033[u", end="")
+    print(f"\033[{__shown + 1}A")
 def vm_runner():
     with open(__components.eeprom.bios_path, 'r', encoding="utf-8") as f:
         code = f.read()
@@ -198,7 +218,7 @@ def shutdowner():
     sys.settrace(None)
 
     print("\033[?25h", end="", flush=True)
-    print("\033[F" * (__shown + 1))
+#    print("\033[F" * (__shown + 1))
     __components.gpu.show()
     print()
 
@@ -217,11 +237,14 @@ def intshutdown(signum=signal.SIGINT, frame=sys._getframe()):
 
 __lines = 0
 __need_lines_gpuflush = 10000
-__need_lines_kblisten = 1
+__need_lines_kblisten = 10
 __doing_routine = False
 __last_gpuflush = None
 def main_routine_dispatcher(frame, _event, arg):
     global __lines, __doing_routine, __last_gpuflush
+#    print(frame, _event, arg)
+#    time.sleep(0)
+    print("", end="", flush=False)
     if frame.f_globals["__name__"] == __name__: return None
     if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in event.routines], main_routine_dispatcher]: return None
 
@@ -243,26 +266,25 @@ def main_routine_dispatcher(frame, _event, arg):
     __doing_routine = True
     sys.settrace(None)
     if __last_gpuflush == None: __last_gpuflush = uptime()
-    if uptime() - __last_gpuflush > 1 / 60:
+    if uptime() - __last_gpuflush > 1 / 30:
         screen_flusher()
         __last_gpuflush = uptime()
-#    if __lines % __need_lines_kblisten == 0:
-    # __kbhit.set_unbuffered_term()
-    with nonblockinginput.NonBlockingInput():
-        keyboard_listener()
-    # __kbhit.set_normal_term()
+    if __lines % __need_lines_kblisten == 0:
+        with nonblockinginput.NonBlockingInput():
+            keyboard_listener()
     sys.settrace(main_routine_dispatcher)
     __doing_routine = False
     return main_routine_dispatcher
 
 starttime = time.time()
-print("PyVM v1",end="")
+print("PyVM v1",end=" "*(__components.gpu.max_resolution()[0]-7))
 
 signal.signal(signal.SIGINT, intshutdown)
 signal.signal(signal.SIGTERM, intshutdown)
 
 sys.settrace(main_routine_dispatcher)
 try:
+    print("\033[s", end="", flush=True)
     print("\033[?25l", end="", flush=True)
     vm_runner()
 except SystemExit: pass
