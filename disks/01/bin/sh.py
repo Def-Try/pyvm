@@ -82,12 +82,12 @@ def run(fallback=False):
                 prg = dofile(location+"/"+command+".py", fn=location+"/"+command+".py")
                 if prg.get("main"): prg.get("main")(string, *parse(string), ENV)
                 ok = True
-            except FSException as e:
+            except filesystem.FSException as e:
                 try:
                     prg = dofile(location+"/"+command, fn=location+"/"+command)
                     if prg.get("main"): prg.get("main")(string, *parse(string), ENC)
                     ok = True
-                except FSException as e: pass
+                except filesystem.FSException as e: pass
         if not ok:
             print("sh: no such file or directory: "+command)
     exit_now = False

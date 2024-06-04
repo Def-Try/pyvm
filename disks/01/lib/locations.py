@@ -9,3 +9,4 @@ binaries = [
 ]
 
 libs = libraries
+bins = binaries

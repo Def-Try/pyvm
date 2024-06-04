@@ -66,3 +66,6 @@ def read(echo=True):
             io.stdout.write(_[cptr:]+"\b"*(len(_)-cptr))
         cptr += 1
         _ = _[:cptr - 1] + __ + _[cptr - 1:]
+
+def write(string):
+    io.stdout.write(string)

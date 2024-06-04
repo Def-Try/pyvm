@@ -1,6 +1,8 @@
 import filesystem
 import random
-w, _ = component.gpu.get_resolution()
+import components
+
+w, _ = components.gpu.get_resolution()
 w -= 1
 motdtext = "Something went wrong. Call Gary!!!"
 

@@ -1,6 +1,8 @@
 import filesystem
-for hdd in component.all("hdd"):
-    mount = f"/mnt/{hdd.uuid[:3]}" if not hdd == component.hdd else "/"
+import components
+
+for hdd in components.all("hdd"):
+    mount = f"/mnt/{hdd.uuid[:3]}" if not hdd == components.hdd else "/"
     if mount == "/":
         if not filesystem.exists("/mnt"):
             filesystem.mkdir("/mnt")

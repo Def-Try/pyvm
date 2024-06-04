@@ -124,7 +124,8 @@ def run(code: str, *, globs=None, fn=None):
     globs = globs if globs else {}
 
     def _unimport(*args, **kwargs): raise ImportError("Package management not ready")
-    def _dostring(code, globs=globs, fn=None): return dostring(code, globs=globs, fn=fn)
+    def _dostring(code, globs_=globs, fn=None):
+        return dostring(code, globs=globs_, fn=fn)
     def _globals(): return {**rglobs, **globs}
     def _locals(): return locs
     def exc_info():

@@ -7,18 +7,18 @@ class Module:
 
 locations = Module({"libs": ['/lib']})
 
-def importer(name, globals, locals, names, level):
+def importer(name, globals, locals, names, level, influence_globals=False):
     if name in loaded:
         return loaded[name]
     mod = None
     for location in locations.libs:
         try:
-            mod = dofile(f"{location}/{name}.py", globs=globals, fn=f"{location}/{name}.py")
+            mod = dofile(f"{location}/{name}.py", fn=f"{location}/{name}.py", influence_globals=influence_globals)
             break
         except FileNotFoundError:
             pass
     if mod is None:
-        raise ImportError("Module can not be found.")
+        raise ImportError(f"Module '{name}' can not be found.")
     mod = Module(mod)
     loaded[name] = mod
     return mod
@@ -27,3 +27,7 @@ __builtins__.__dict__["__import__"] = importer
 __builtins__.__import__ = importer
 
 import locations
+
+loaded["components"] = component
+del globals()["component"]
+loaded["package"] = Module(globals())

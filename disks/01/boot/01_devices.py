@@ -1,2 +1,4 @@
-for c in component.list():
+import components
+
+for c in components.list():
     log("Prepared component "+str(c))

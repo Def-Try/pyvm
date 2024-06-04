@@ -1,3 +1,5 @@
+import components
+
 mounts = {}
 if "_list" not in locals():
     _list = list
@@ -43,7 +45,7 @@ def parent(path):
     return "/"+"/".join(_list(iterate(path))[:-1])
 
 def to_real_path(path):
-    real_path = [component.hdd, ""]
+    real_path = [components.hdd, ""]
     for i in iterate(path):
         real_path[1] += "/"+i
         if real_path[1] in mounts:

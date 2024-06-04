@@ -1,4 +1,5 @@
 import filesystem
+import term
 
 def main(raw, flags, args, env):
     path = env.get("cwd") * int(not args[0].startswith("/"))+"/"+args[0]
@@ -9,11 +10,8 @@ def main(raw, flags, args, env):
         print(path)
         return 0
     for file in filesystem.list(path):
-        # TODO: ANSI codes support frfr
-        if file[0] == "dir":
-            cclr = component.gpu.get_foreground()
-            component.gpu.set_foreground(0, 127, 255)
-        print(file[1], end="\t")
-        if file[0] == "dir":
-            component.gpu.set_foreground(*cclr)
+        if file[0] != "dir":
+            term.write(file[1]+"\t")
+        else:
+            term.write("\033[38;2;0;127;255m"+file[1]+"\033[0m\t")
     print()

@@ -1,4 +1,5 @@
 import filesystem
+import components
 import package
 import io
 
@@ -27,4 +28,4 @@ def run():
     if err:
         print(f"Caught exception: {err}")
     print("Kernel panic - not syncing: shell killed!")
-    component.computer.shutdown()
+    components.computer.shutdown()
