@@ -1,3 +1,10 @@
+"""
+SOD
+type=library
+name=random
+needsinit=false
+EOD
+"""
 state = realtime()
 
 def seed(sed):

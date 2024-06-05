@@ -1,6 +1,7 @@
 import io
 import filesystem
 import components
+import event
 
 gpu = components.gpu
 def __stdout_drawch(stream, data):
@@ -109,9 +110,8 @@ def keyboard_(event):
 
 fill = True
 should_blink = False
-washere = " "
 def tick_(_):
-    global fill, washere
+    global fill
     if not should_blink: return
     bg, fg = gpu.get_background(), gpu.get_foreground()
     gpu.set_background(*gpu.get(stdout.x, stdout.y)[1][1])

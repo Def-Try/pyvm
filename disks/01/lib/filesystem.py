@@ -1,10 +1,10 @@
 import components
 
-mounts = {}
-if "_list" not in locals():
-    _list = list
+from abc.filesystem import FSException
 
-class FSException(Exception): pass
+mounts = {}
+#if "_list" not in locals():
+_list = list
 
 def mount(hdd, path):
     global mounts

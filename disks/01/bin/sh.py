@@ -47,10 +47,14 @@ def run(fallback=False):
         ok = False
         for location in locations.binaries:
             path = location+"/"+command+".py" if not command.startswith(".") or command.startswith("/") else command
-            print(path, filesystem.exists(path))
+#            print(path, filesystem.exists(path))
             if filesystem.exists(path):
-                prg = dofile(path, fn=path)
-                if prg.get("main"): prg.get("main")(string, ENV)
+                try:
+                    prg = dofile(path, fn=path)
+                    if prg.get("main"): prg.get("main")(string, ENV)
+                except Exception:
+                    print("Exception catched by shell")
+                    print(traceback.format_exception(exc_info()))
                 ok = True
             if ok or not path.startswith(location): break
         if not ok:

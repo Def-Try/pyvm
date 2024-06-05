@@ -16,7 +16,7 @@ from modules.isolation import set_name
 __name__ = "__PYVM_RUNNER_"+str(random.randint(10000, 99999))+"__"
 set_name(__name__)
 
-from modules import kbhit, traceback, component, components, uuids, event, nonblockinginput
+from modules import kbhit, traceback, component, components, uuids, nonblockinginput
 
 __kbhit = None
 __buffer = []
@@ -91,21 +91,19 @@ def error(*message):
         __components.gpu.set(x, y+n, line)
     __components.computer.shut = 1
 
-def _kbevent(event, keyboard):
+def _kbevent(keyboard):
     k = keyboard.pullkey()
     if not k: return
     while k:
-        event.push(event.create_event("key_pushed", k))
+        __components.computer.push_signal(__components.computer.create_signal("key_pushed", k))
         k = keyboard.pullkey()
 
 __ltick = 0
-def _ticker(event, uptime):
+def _ticker(uptime):
     global __ltick
     if __ltick + 1.0 > uptime(): return
-    event.push(event.create_event("tick"))
+    __components.computer.push_signal(__components.computer.create_signal("tick"))
     __ltick = uptime()
-
-events = event.Events()
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -154,30 +152,31 @@ def run(code: str, *, globs=None, fn=None):
         ptbs("setattr", setattr)
         ptbs("getattr", getattr)
         ptbs("SyntaxError", SyntaxError)
+        ptbs("Exception", Exception)
+        ptbs("BaseException", BaseException)
+        ptbs("FileNotFoundError", FileNotFoundError)
+        ptbs("ImportError", ImportError)
+        ptbs("IndexError", IndexError)
         ptbs("__name__", "__pyvm__")
         globs["__loader__"] = _loader()
         globs["__name__"] = "__pyvm__"
         globs["component"] = __components
         globs["dostring"] = _dostring
         globs["len"] = len
+        globs["dir"] = dir
         globs["uptime"] = uptime
         globs["error"] = error
         globs["round"] = round
         globs["range"] = range
         globs["enumerate"] = enumerate
-        globs["Exception"] = Exception
-        globs["BaseException"] = BaseException
-        globs["FileNotFoundError"] = FileNotFoundError
-        globs["ImportError"] = ImportError
-        globs["event"] = events
         globs["globals"] = globals
         globs["locals"] = locals
         globs["exc_info"] = exc_info
         globs["traceback"] = traceback
         globs["realtime"] = lambda: time.mktime(time.localtime())-time.timezone
 
-        globs["event"].pusher("kb_event",_kbevent, (globs["event"], __components.keyboard))
-        globs["event"].pusher("ticker", _ticker, (globs["event"], globs["uptime"]))
+        __components.computer.pusher("kb_event",_kbevent, (__components.keyboard, ))
+        __components.computer.pusher("ticker", _ticker, (globs["uptime"], ))
 
         globs["min"] = min
         globs["max"] = max
@@ -188,6 +187,8 @@ def run(code: str, *, globs=None, fn=None):
         globs["list"] = list
         globs["dict"] = dict
         globs["tuple"] = tuple
+
+        globs["super"] = super
 
     compiled = compile(code, fn or "<dostring>", "exec")
     ret = exec(compiled, globs)
@@ -248,7 +249,7 @@ def main_routine_dispatcher(frame, _event, arg):
 #    time.sleep(0)
     print("", end="", flush=False)
     if frame.f_globals["__name__"] == __name__: return None
-    if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in event.routines], main_routine_dispatcher]: return None
+    if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in __components.computer.routines], main_routine_dispatcher]: return None
 
     if __components.computer.shut:
         shutdowner()
@@ -258,7 +259,7 @@ def main_routine_dispatcher(frame, _event, arg):
 
     __doing_routine = True
     sys.settrace(None)
-    for routine in event.routines:
+    for routine in __components.computer.routines:
         routine[0](*routine[1])
     sys.settrace(main_routine_dispatcher)
     __doing_routine = False
@@ -292,6 +293,16 @@ try:
 except SystemExit: pass
 except BaseException:
     exc = sys.exc_info()
-    error(*traceback.format_exception([exc[0], exc[1], exc[2].tb_next]).split("\n"))
+    tr = traceback.format_exception([exc[0], exc[1], exc[2].tb_next])
+    fpath = f"machine/crash/{random.randint(10000, 99999)}.log"
+    with open(fpath, 'w') as f:
+        f.write("\n".join(reversed(tr.split("\n"))))
+    finfo = f"Crash report saved to {fpath}..."
+    tr_ = "\n".join(tr.split("\n")[-__components.gpu.max_resolution()[1] + 4:])
+    nl = '\n'
+    if len(tr_) < len(tr):
+        tr_ = f"... {len(tr.split(nl)) - len(tr_.split(nl))} more lines ...\n" + tr_
+    tr_ += nl + finfo
+    error(tr_)
 
 shutdowner()
