@@ -1,7 +1,7 @@
 import filesystem
 
 def main(raw, env):
-    path = filesystem.canonalize((env.get("cwd", "")*int(not args[0].startswith("/")))+"/"+args[0])
+    path = filesystem.canonalize((env.get("cwd", "")*int(not raw.startswith("/")))+"/"+raw)
     fpath = ""
     for fpart in filesystem.iterate(path):
         fpath = fpath + "/" + fpart

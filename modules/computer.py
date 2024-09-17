@@ -11,8 +11,8 @@ class Signal:
         self.args = args
 
 class Computer(Component):
-    def __init__(self):
-        super().__init__("Computer", "googerlabs CreatCase", uuids["computer"])
+    def __init__(self, data, uuid):
+        super().__init__("Computer", "googerlabs CreatCase", uuid)
         self.shut = 0
         self.event_handler = self.__def_handl__
         self.event_stack = []
@@ -20,6 +20,13 @@ class Computer(Component):
 
     def shutdown(self):
         self.shut = 1
+
+    @property
+    def total_ram(self):
+        size = 0
+        for stick in self.components.all("ram"):
+            size += stick.bytevalue
+        return size
 
     def __def_handl__(self, *args, **kwargs):
         pass

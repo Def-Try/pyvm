@@ -20,6 +20,7 @@ class Components:
         raise IndexError(f"No such component: {attr}")
     def connect(self, component: Component):
         self.components.append(component)
+        return component
     def list(self):
         for c in self.components: yield c
     def all(self, type):

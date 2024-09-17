@@ -17,7 +17,7 @@ def interactive():
     def _exit(*__, **_):
         _quit = True
         return
-    locals = {}
+    locals = globals().copy()
     while not _quit:
         try:
             term.write(ps1 if not source.endswith("\n") else ps2)

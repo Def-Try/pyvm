@@ -1,0 +1,34 @@
+[
+  ["cpu", {
+    "id": "cpu",
+    "speed": 10000
+  }],
+  ["gpu", {
+    "id": "gpu",
+    "resolution": "85x25",
+    "refreshrate": "15"
+  }],
+  ["ram", {
+    "id": "ram0",
+    "size": "128K"
+  }],
+  ["hdd", {
+    "id": "hdd0",
+    "root": "disks/01/"
+  }],
+  ["hdd", {
+    "id": "hdd1",
+    "root": "disks/02/"
+  }],
+  ["eeprom", {
+    "id": "eeprom",
+    "bios": "machine/bios.py",
+    "data": "machine/data.bin"
+  }],
+  ["keyboard", {
+    "id": "keyboard"
+  }],
+  ["computer", {
+    "id": "computer"
+  }]
+]

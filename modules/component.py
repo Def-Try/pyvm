@@ -1,7 +1,6 @@
 import os
 import sys
 
-from modules.uuids import uuids
 from modules.isolation import get_name
 __name__ = get_name()
 
@@ -9,13 +8,19 @@ from modules.computer import Computer
 from modules.abc import Component
 
 class CPU(Component):
-    def __init__(self):
-        super().__init__("CPU", "GDT Rapid 8800K", uuids["cpu"])
+    def __init__(self, data, uuid):
+        super().__init__("CPU", "GDT Rapid 8800K", uuid)
+        self.speed = data["speed"]
 
 class GPU(Component):
-    def __init__(self):
-        super().__init__("GPU", "googerlabs TGPU X5", uuids["gpu"])
-        self.resolution = (1, 1)
+    def __init__(self, data, uuid):
+        super().__init__("GPU", "googerlabs TGPU X5", uuid)
+        w, h = 1, 1
+        if data.get("resolution") and len(data.get("resolution").split("x")) == 2:
+            w, h = data.get("resolution").split("x")
+            w, h = int(w), int(h)
+        self.resolution = (w, h)
+        self.refreshrate = int(data.get('refreshrate', '15'))
         self.set_background(0, 0, 0)
         self.set_foreground(0, 255, 0)
         self.clear()
@@ -23,8 +28,6 @@ class GPU(Component):
     def clear(self):
         self.screen  = []
         self.screenc = []
-        self.buffer  = None
-        self.bufferc = None
         for y in range(self.resolution[1]):
             self.screen .append([])
             self.screenc.append([])
@@ -33,25 +36,23 @@ class GPU(Component):
                 self.screenc[y].append([self.get_background(), self.get_foreground()])
 
     def show(self):
-        if self.buffer == None:
-            e = ""
-            fg, bg = None, None
-            for coline, line in zip(self.screenc, self.screen):
-                for clr, smb in zip(coline, line):
-                    if clr[1] != fg:
-                        fg = clr[1]
-                        e += f"\033[38;2;{';'.join([str(i) for i in fg])}m"
-                    if clr[0] != bg:
-                        bg = clr[0]
-                        e += f"\033[48;2;{';'.join([str(i) for i in bg])}m"
-                    e += smb
-                e += '\n'
-            e = e[:-1]
-            sys.stdout.write(e)
-            sys.stdout.flush()
-#            self.buffer  = list(self.screen )
-#            self.bufferc = list(self.screenc)
-            return len(self.screen)
+        e = ""
+        fg, bg = None, None
+        for coline, line in zip(self.screenc, self.screen):
+            for clr, smb in zip(coline, line):
+                if clr[1] != fg:
+                    fg = clr[1]
+                    e += f"\033[38;2;{';'.join([str(i) for i in fg])}m"
+                if clr[0] != bg:
+                    bg = clr[0]
+                    e += f"\033[48;2;{';'.join([str(i) for i in bg])}m"
+                e += smb
+            e += '\n'
+        e = e[:-1]
+        e = e+"\033[0m"
+        sys.stdout.write(e)
+        sys.stdout.flush()
+        return len(self.screen)
 
     def set_resolution(self, width, height):
         self.resolution = (width, height)
@@ -121,9 +122,9 @@ class GPU(Component):
         return char.replace("\n", "").replace("\r", "").replace("\b", "")
 
 class HDD(Component):
-    def __init__(self, root, uuid):
+    def __init__(self, data, uuid):
         super().__init__("HDD", "ohiodevs HDD", uuid)
-        self.root = root
+        self.root = data["root"]
     def open(self, path, mode='r'):
         file = open(self.root + self._form_path(path), mode=mode)
         return file
@@ -148,12 +149,18 @@ class HDD(Component):
         path = self.root + self._form_path(path)
         return os.mkdir(path)
 
+class RAM(Component):
+    def __init__(self, data, uuid):
+        super().__init__("RAM", "RCN RAM", uuid)
+        real = int(data['size'][:-1])
+        mul = 1024 ** ([' ', 'K', 'M'].index(data['size'][-1]))
+        self.bytevalue = int(real) * mul
 
 class EEPROM(Component):
-    def __init__(self, bios_path, data_path):
-        super().__init__("EEPROM", "Supernova BIOS", uuids["bios"])
-        self.bios_path = bios_path
-        self.data_path = data_path
+    def __init__(self, data, uuid):
+        super().__init__("EEPROM", "Supernova BIOS", uuid)
+        self.bios_path = data["bios"]
+        self.data_path = data["data"]
     @property
     def bios(self):
         code = None
@@ -175,8 +182,8 @@ class EEPROM(Component):
         with open(self.data_path, 'w') as f: f.write(data)
 
 class Keyboard(Component):
-    def __init__(self):
-        super().__init__("Keyboard", "Treeius OC 28520", uuids["keyboard"])
+    def __init__(self, data, uuid):
+        super().__init__("Keyboard", "Treeius OC 28520", uuid)
         self.keybuffer = []
     def pullkey(self):
         key = ""

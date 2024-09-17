@@ -5,7 +5,7 @@ w, h = gpu.get_resolution()
 _dostring = dostring
 def dostring(code, globs=globals(), fn=None, influence_globals=False):
     if not influence_globals and globs == globals(): globs = globals().copy()
-    return _dostring(code, globs_=globs, fn=fn)
+    return _dostring(code, globals_=globs, fn=fn)
 
 globals()["RUNTIME"] = "I"
 

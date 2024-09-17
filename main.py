@@ -1,78 +1,182 @@
-import os
-import sys
-import time
 import json
-import uuid
-import traceback
-import struct
+import os
 import random
 import signal
-import atexit
-import _thread as thread
-import threading
-import multiprocessing
-from collections import defaultdict
+import sys
+import time
 
-from modules.isolation import set_name, get_name
-__name__ = "__PYVM_RUNNER_"+str(random.randint(10000, 99999))+"__"
+from modules.isolation import set_name
+
+print("Preparing __name__")
+__name__ = "__PYVM_RUNNER_" + str(random.randint(10000, 99999)) + "__"
 set_name(__name__)
+print(f"Our __name__ is \"{__name__}\"!")
 
-from modules import kbhit, traceback, component, components, uuids, nonblockinginput
+print("Setting VM start time")
+pyvm_start_time = time.time()
 
-__kbhit = None
-__buffer = []
+from modules import keyboard
+from modules import component
+from modules import components as _components
+from modules import uuids
+from modules import dotdict
+from modules import traceback
 
-def doch(ch):
-    if os.name == 'nt':
-        if ch == "\r":
-            return "\n"
-        return ch
-    else:
-        if ch == "\x7f": ch = "\b"
-        return ch
+print("Initialising keyboard capture...", end="")
+kbhit = keyboard.KBHit()
+nbi = keyboard.NonBlockingInput()
+print("OK")
+shown = -1
+print("Initialising components...")
+ctypes = {"cpu": component.CPU,
+          "gpu": component.GPU,
+          "hdd": component.HDD,
+          "ram": component.RAM,
+          "computer": component.Computer,
+          "eeprom": component.EEPROM,
+          "keyboard": component.Keyboard}
+components = _components.Components([], ctypes)
 
-def quit_function(fn_name):
-    print('{0} took too long'.format(fn_name), file=sys.stderr)
-    sys.stderr.flush()
-    thread.interrupt_main()
+with open("machine/machine.json", 'r') as f:
+    config = json.load(f)
+for type_, data in config:
+    if not ctypes.get(type_):
+        print(f"  UNKNOWN COMPONENT TYPE: {type_}")
+        sys.exit(1)
+    print(f"  Installed: {type_} / {data['id']}")
+    component_ = ctypes.get(type_)(data, uuids.uuids[data["id"]])
+    components.connect(component_)
 
-def exit_after(s):
-    def outer(fn):
-        def inner(*args, **kwargs):
-            timer = threading.Timer(s, quit_function, args=[fn.__name__])
-            timer.start()
-            try:
-                result = fn(*args, **kwargs)
-            finally:
-                timer.cancel()
-            return result
-        return inner
-    return outer
+try: components.computer
+except: print(f"  FAIL: NO COMPUTER INSTALLED"); sys.exit(1)
 
-__shown = -1
+try: components.cpu
+except: print(f"  FAIL: NO CPU INSTALLED"); sys.exit(1)
 
-__components = components.Components([],
-    {"cpu": component.CPU,
-     "gpu": component.GPU,
-     "hdd": component.HDD,
-     "computer": component.Computer,
-     "eeprom": component.EEPROM,
-     "keyboard": component.Keyboard}
-)
+try: components.ram
+except: print(f"  FAIL: NO RAM INSTALLED"); sys.exit(1)
 
-scr = component.GPU()
-scr.set_resolution(min(85, scr.max_resolution()[0]), min(25, scr.max_resolution()[1]))
+try: components.gpu
+except: print(f"  FAIL: NO GPU INSTALLED"); sys.exit(1)
 
-__components.connect(component.CPU())
-__components.connect(scr)
-__components.connect(component.HDD("disks/01/", uuids.uuids["hdd0"]))
-__components.connect(component.HDD("disks/02/", uuids.uuids["hdd1"]))
-__components.connect(component.Computer())
-__components.connect(component.EEPROM("machine/bios.py", "machine/data.bin"))
-__components.connect(component.Keyboard())
+try: components.eeprom
+except: print(f"  FAIL: NO EEPROM INSTALLED"); sys.exit(1)
 
-starttime = 0
-def uptime(): return time.time() - starttime
+components.computer.components = components
+
+vm_globals = dotdict.dotdict({"__builtins__": dotdict.dotdict()})
+
+
+def getch():
+    with nbi:
+        return keyboard.doch(kbhit.getch())
+
+
+last_gpu_flush = 0
+linecount = 0
+
+
+def shutdowner():
+
+    sys.settrace(None)
+
+    print(f"\033[{shown + 1}A")
+    print("\033[?25h", end="", flush=True)
+    #    print("\033[F" * (__shown + 1))
+    components.gpu.show()
+    print()
+
+    with open("machine/uuids.json", 'w') as f:
+        f.write(json.dumps(uuids.uuids))
+
+    kbhit.set_normal_term()
+    # sys.exit(0)
+    os._exit(0)
+
+
+def intshutdown(signum=signal.SIGINT, frame=None):
+    signal.signal(signum, signal.SIG_IGN)
+    error("KeyboardInterrupt")
+    components.computer.shut = -1
+    #shutdowner()
+
+
+def main_routine_dispatcher(frame, _event, arg):
+    global shown, last_gpu_flush, linecount
+    if _event == 'line':
+        linecount += 1
+    if linecount % components.cpu.speed == 0:
+        [print("", end="", flush=False) for i in range(10000)]
+        linecount += 1
+    name = frame.f_globals.get("__name__")
+    # print(name)
+    if components.computer.shut:
+        shutdowner()
+        return None
+    if name == __name__:
+        return None
+    f = [frame]
+    while f[-1].f_back != None:
+        f += [f[-1].f_back]
+    if f[-3].f_code.co_name != "run":
+        return None
+    size = 0
+    know = []
+    fr = f[:-4]
+    for frame_ in fr:
+        for k,v in frame_.f_globals.items():
+            if str(k) + str(v) in know: continue
+            know += [str(k) + str(v)]
+            size += sys.getsizeof(k) + sys.getsizeof(v)
+    try:
+        raise ValueError()
+    except ValueError as e:
+        tb = e.__traceback__
+    if size > components.computer.total_ram:
+        error(f"ram overflowed ({size} > {components.computer.total_ram})",
+              f"at {str(f[0].f_code.co_filename)}:{str(f[0].f_lineno)}",
+              f"function {str(f[0].f_code.co_name)}")
+        return None
+        sys.excepthook(MemoryError, MemoryError("too much ram used"), tb)
+
+    # print(name)
+    if vm_globals.uptime() - last_gpu_flush > 1 / components.gpu.refreshrate:
+        print(f"\033[{shown + 1}A")
+        shown = components.gpu.show()
+        print()
+        last_gpu_flush = vm_globals.uptime()
+    got_char = getch()
+    if got_char and got_char != '':
+        for ch in got_char:
+            components.computer.push_signal(components.computer.create_signal("key_pushed", ch))
+        # components.keyboard.pushkey(got_char)
+
+    return main_routine_dispatcher
+
+
+def except_hook(*args, **kwargs):
+    sys.settrace(None)
+    exc = args
+    tr = traceback.format_exception([exc[0], exc[1], exc[2]])
+    fpath = f"machine/crash/{random.randint(10000, 99999)}.log"
+    with open(fpath, 'w') as f:
+        f.write("\n".join(reversed(tr.split("\n"))))
+    finfo = f"Crash report saved to {fpath}..."
+    tr_ = "\n".join(tr.split("\n")[-components.gpu.max_resolution()[1] + 4:])
+    nl = '\n'
+    if len(tr_) < len(tr):
+        tr_ = f"... {len(tr.split(nl)) - len(tr_.split(nl))} more lines ...\n" + tr_
+    tr_ += nl + finfo
+    error(tr_)
+    sys.__excepthook__(*args, **kwargs)
+    shutdowner()
+
+
+def run(code, globals_=None, fn="<stdin>"):
+    globals_ = globals_ or vm_globals
+    exec(compile(code, fn or "<dostring>", "exec"), globals_)
+    return globals_
+
 
 def error(*message):
     message = [i.split("\n") for i in message]
@@ -81,263 +185,84 @@ def error(*message):
         msg += m
     message = msg
 
-    __components.gpu.set_background(0, 0, 255)
-    __components.gpu.set_foreground(255, 255, 255)
-    __components.gpu.fill(0, 0, *__components.gpu.get_resolution(), " ")
-    w, h = __components.gpu.get_resolution()
+    components.gpu.set_background(0, 0, 255)
+    components.gpu.set_foreground(255, 255, 255)
+    components.gpu.fill(0, 0, *components.gpu.get_resolution(), " ")
+    w, h = components.gpu.get_resolution()
     y = int(h / 2 - len(message) / 2)
     for n,line in enumerate(message):
         line = str(line).strip()
         x = int(w / 2 - len(line) / 2)
-        __components.gpu.set(x, y+n, line)
-    __components.computer.shut = 1
+        components.gpu.set(x, y+n, line)
+    components.computer.shut = 1
 
-def _kbevent(keyboard):
-    k = keyboard.pullkey()
-    if not k: return
-    while k:
-        __components.computer.push_signal(__components.computer.create_signal("key_pushed", k))
-        k = keyboard.pullkey()
 
-__ltick = 0
-def _ticker(uptime):
-    global __ltick
-    if __ltick + 1.0 > uptime(): return
-    __components.computer.push_signal(__components.computer.create_signal("tick"))
-    __ltick = uptime()
-
-class dotdict(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-def dostring(code: str, *, globs=None, fn=None):
-    #_, globs = run(code, globs=globs, fn=fn)
-    compiled = compile(code, fn or "<dostring>", "exec")
-    ret = exec(compiled, globs)
-    return globs
-
-def run(code: str, *, globs=None, fn=None):
-    uninitedglobs = not globs
-    rglobs = globs
-    globs = globs if globs else {}
-
-    def _unimport(*args, **kwargs): raise ImportError("Package management not ready")
-    def _dostring(code, globs_=globs, fn=None):
-        return dostring(code, globs=globs_, fn=fn)
-    def _docompiled(code, globs_=globs):
-        globs[__name__] = "exec"
-#        thread = threading.Thread(target=exec, args=(code, globs_))
-#        thread.start()
-#        while True:
-#            print(thread.is_alive())
-        data = multiprocessing.Manager().dict()
-        def exec_(code, globs_, data):
-            try:
-                data[0] = [True, exec(code, globs_)]
-            except BaseException as e:
-                data[0] = [False, e]
-        process = multiprocessing.Process(target=exec_, args=(code, globs_, data))
-        process.start()
-        process.join() # please god don't let this process lock us up
-#        while True:
-#             if not process.is_alive(): break
-        res = data[1]
-        del globs[__name__]
-        return
-        if not data[0]:
-            raise res
-        return res
-    def _globals(): return {**rglobs, **globs}
-    def _locals(): return locs
-    def exc_info():
-        e = sys.exc_info()
-        return [e[0], e[1], e[2].tb_next]
-    globs["__source__"] = code
-    class _loader:
-        def get_source(self, fullname):
-            return globs["__source__"]
-    if uninitedglobs:
-        globs["__builtins__"] = dotdict()
-        def ptbs(name, obj):
-            nonlocal globs
-            globs["__builtins__"].__dict__[name] = obj
-            globs["__builtins__"][name] = obj
-
-        ptbs("__import__", _unimport)
-        if isinstance(__builtins__, dict):
-            ptbs("__build_class__", __builtins__["__build_class__"])
-        else:
-            ptbs("__build_class__", __builtins__.__build_class__)
-        ptbs("isinstance", isinstance)
-        ptbs("issubclass", issubclass)
-        ptbs("id", id)
-        ptbs("type", type)
-        ptbs("object", object)
-        ptbs("hasattr", hasattr)
-        ptbs("setattr", setattr)
-        ptbs("getattr", getattr)
-        ptbs("SyntaxError", SyntaxError)
-        ptbs("Exception", Exception)
-        ptbs("BaseException", BaseException)
-        ptbs("FileNotFoundError", FileNotFoundError)
-        ptbs("IndexError", IndexError)
-        ptbs("__name__", "__pyvm__")
-        globs["executor"] = dotdict()
-        globs["executor"].compile = compile
-        globs["executor"].exec = _docompiled
-        globs["__loader__"] = _loader()
-        globs["__name__"] = "__pyvm__"
-        globs["component"] = __components
-        globs["dostring"] = _dostring
-        globs["len"] = len
-        globs["dir"] = dir
-        globs["uptime"] = uptime
-        globs["error"] = error
-        globs["round"] = round
-        globs["range"] = range
-        globs["enumerate"] = enumerate
-        globs["globals"] = globals
-        globs["locals"] = locals
-        globs["exc_info"] = exc_info
-#        globs["traceback"] = traceback
-        globs["realtime"] = lambda: time.mktime(time.localtime())-time.timezone
-
-        __components.computer.pusher("kb_event",_kbevent, (__components.keyboard, ))
-        __components.computer.pusher("ticker", _ticker, (globs["uptime"], ))
-
-        globs["min"] = min
-        globs["max"] = max
-
-        globs["str"] = str
-        globs["int"] = int
-        globs["float"] = float
-        globs["list"] = list
-        globs["dict"] = dict
-        globs["tuple"] = tuple
-
-        globs["super"] = super
-
-    compiled = compile(code, fn or "<dostring>", "exec")
-    ret = exec(compiled, globs)
-    return ret, globs
-
-__kbhit = kbhit.KBHit()
-@exit_after(0.25)
-def keyboard_listener():
-    if not __kbhit.kbhit(): return
-    c = 'E'
-    while c != '':
-        c = __kbhit.getch()
-        if c == '': break
-        __components.keyboard.pushkey(doch(c))
-@exit_after(0.25)
-def screen_flusher():
-    global __shown
-    print(f"\033[{__shown + 1}A")
-    __shown = __components.gpu.show()
-    print()
-#    print("\033[u", end="")
-
-def vm_runner():
-    with open(__components.eeprom.bios_path, 'r', encoding="utf-8") as f:
+def run_vm():
+    with open(components.eeprom.bios_path, 'r', encoding="utf-8") as f:
         code = f.read()
-    ret = run(code, fn=__components.eeprom.bios_path)
+    ret = run(code, globals_=vm_globals, fn=components.eeprom.bios_path)
 
-    __components.computer.shut = -1 if __components.computer.shut == 0 else __components.computer.shut
+    components.computer.shut = -1 if components.computer.shut == 0 else components.computer.shut
     return ret
-def shutdowner():
-    sys.settrace(None)
 
-    print(f"\033[{__shown + 1}A")
-    print("\033[?25h", end="", flush=True)
-#    print("\033[F" * (__shown + 1))
-    __components.gpu.show()
-    print()
 
-    with open("machine/uuids.json", 'w') as f:
-        f.write(json.dumps(uuids.uuids))
+vm_globals.component = components
+vm_globals.dostring = run
+vm_globals.globals = lambda: vm_globals
+vm_globals.uptime = lambda: time.time() - pyvm_start_time
 
-    __kbhit.set_normal_term()
-    # sys.exit(0)
-    os._exit(0)
+vm_globals.__builtins__.__build_class__ = __builtins__.__build_class__
+vm_globals.__builtins__.isinstance = __builtins__.isinstance
+vm_globals.__builtins__.issubclass = __builtins__.issubclass
+vm_globals.__builtins__.id = __builtins__.id
+vm_globals.__builtins__.type = __builtins__.type
+vm_globals.__builtins__.object = __builtins__.object
+vm_globals.__builtins__.hasattr = __builtins__.hasattr
+vm_globals.__builtins__.getattr = __builtins__.getattr
+vm_globals.__builtins__.setattr = __builtins__.setattr
+vm_globals.__builtins__.dir = __builtins__.dir
+vm_globals.__builtins__.Exception = Exception
+vm_globals.__builtins__.BaseException = BaseException
+vm_globals.__builtins__.SyntaxError = SyntaxError
+vm_globals.__builtins__.FileNotFoundError = FileNotFoundError
 
-def intshutdown(signum=signal.SIGINT, frame=sys._getframe()):
-    signal.signal(signum, signal.SIG_IGN)
-    error("KeyboardInterrupt")
-    __components.computer.shut = -1
-    #shutdowner()
+vm_globals.executor = dotdict.dotdict()
+vm_globals.executor.compile = compile
+vm_globals.executor.exec = exec
 
-__lines = 0
-__need_lines_gpuflush = 10000
-__need_lines_kblisten = 10
-__doing_routine = False
-__last_gpuflush = None
-def main_routine_dispatcher(frame, _event, arg):
-    global __lines, __doing_routine, __last_gpuflush
+vm_globals.__name__ = "__main__"
 
-#    print(frame, _event)
+vm_globals.__builtins__.len = __builtins__.len
+vm_globals.__builtins__.min = __builtins__.min
+vm_globals.__builtins__.max = __builtins__.max
+vm_globals.__builtins__.round = __builtins__.round
+vm_globals.__builtins__.range = __builtins__.range
 
-#    print(frame, _event, arg)
-#    time.sleep(0)
+vm_globals.__builtins__.exc_info = sys.exc_info
+vm_globals.__builtins__.error = error
 
-    # i love python <3
-#    [ print("", end="", flush=False)  for i in range(10) ]
-
-#    if _event == "call": return None
-    if frame.f_globals.get("__name__") == "exec": return None
-    if frame.f_globals["__name__"] == __name__: return None
-    if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in __components.computer.routines], main_routine_dispatcher]: return None
-
-    if __components.computer.shut:
-        shutdowner()
-        return main_routine_dispatcher
-
-    if __doing_routine: return None
-
-    __doing_routine = True
-    for routine in __components.computer.routines:
-        routine[0](*routine[1])
-    __doing_routine = False
-
-    if _event == "line":
-        __lines += 1
-    __doing_routine = True
-    if __last_gpuflush == None: __last_gpuflush = uptime()
-    if uptime() - __last_gpuflush > 1 / 15:
-        screen_flusher()
-        __last_gpuflush = uptime()
-    if __lines % __need_lines_kblisten == 0:
-        with nonblockinginput.NonBlockingInput():
-            keyboard_listener()
-    __doing_routine = False
-    return main_routine_dispatcher
-
-starttime = time.time()
-print("PyVM v1",end=" "*(__components.gpu.max_resolution()[0]-7))
+vm_globals.__builtins__.str = __builtins__.str
+vm_globals.__builtins__.int = __builtins__.int
+vm_globals.__builtins__.float = __builtins__.float
+vm_globals.__builtins__.list = __builtins__.list
+vm_globals.__builtins__.dict = __builtins__.dict
+vm_globals.__builtins__.tuple = __builtins__.tuple
+vm_globals.__builtins__.super = __builtins__.super
+vm_globals.__builtins__.enumerate = __builtins__.enumerate
+vm_globals.__builtins__.realtime = lambda: time.time()
+print("VM globals done")
 
 signal.signal(signal.SIGINT, intshutdown)
 signal.signal(signal.SIGTERM, intshutdown)
+print("Signal shutdown done")
 
+print("Main routine dispatcher enable")
 sys.settrace(main_routine_dispatcher)
+sys.excepthook = except_hook
 
-try:
-    print("\033[s", end="", flush=True)
-    print("\033[?25l", end="", flush=True)
-    vm_runner()
-except SystemExit: pass
-except BaseException:
-    exc = sys.exc_info()
-    tr = traceback.format_exception([exc[0], exc[1], exc[2].tb_next])
-    fpath = f"machine/crash/{random.randint(10000, 99999)}.log"
-    with open(fpath, 'w') as f:
-        f.write("\n".join(reversed(tr.split("\n"))))
-    finfo = f"Crash report saved to {fpath}..."
-    tr_ = "\n".join(tr.split("\n")[-__components.gpu.max_resolution()[1] + 4:])
-    nl = '\n'
-    if len(tr_) < len(tr):
-        tr_ = f"... {len(tr.split(nl)) - len(tr_.split(nl))} more lines ...\n" + tr_
-    tr_ += nl + finfo
-    error(tr_)
+print(f"PREP took {time.time() - pyvm_start_time:02f} seconds")
 
-shutdowner()
+print("\033[s", end="", flush=True)
+print("\033[?25l", end="", flush=True)
+
+run_vm()
