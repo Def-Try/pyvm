@@ -2,6 +2,7 @@ import filesystem
 import components
 import package
 import io
+import traceback
 
 with filesystem.open("/etc/shell", mode='r') as f:
     _sh_name = f.read().strip()

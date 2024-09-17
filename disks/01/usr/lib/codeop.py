@@ -32,6 +32,11 @@ Compile():
     but with 'memory' in the sense described above.
 """
 
+# PyVM adapter to compile, exec, eval
+import executor
+
+_features = []
+
 __all__ = ["compile_command", "Compile", "CommandCompiler"]
 
 # The following flags match the values from Include/cpython/compile.h
@@ -69,7 +74,7 @@ def _compile(source, filename, symbol, incomplete_input=True):
     if incomplete_input:
         flags |= PyCF_ALLOW_INCOMPLETE_INPUT
         flags |= PyCF_DONT_IMPLY_DEDENT
-    return compile(source, filename, symbol, flags)
+    return executor.compile(source, filename, symbol, flags)
 
 def compile_command(source, filename="<input>", symbol="single"):
     r"""Compile a command and determine whether it is incomplete.
@@ -105,7 +110,7 @@ class Compile:
         if kwargs.get('incomplete_input', True) is False:
             flags &= ~PyCF_DONT_IMPLY_DEDENT
             flags &= ~PyCF_ALLOW_INCOMPLETE_INPUT
-        codeob = compile(source, filename, symbol, flags, True)
+        codeob = executor.compile(source, filename, symbol, flags, True)
         for feature in _features:
             if codeob.co_flags & feature.compiler_flag:
                 self.flags |= feature.compiler_flag

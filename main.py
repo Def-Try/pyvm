@@ -10,9 +10,10 @@ import signal
 import atexit
 import _thread as thread
 import threading
+import multiprocessing
 from collections import defaultdict
 
-from modules.isolation import set_name
+from modules.isolation import set_name, get_name
 __name__ = "__PYVM_RUNNER_"+str(random.randint(10000, 99999))+"__"
 set_name(__name__)
 
@@ -124,6 +125,29 @@ def run(code: str, *, globs=None, fn=None):
     def _unimport(*args, **kwargs): raise ImportError("Package management not ready")
     def _dostring(code, globs_=globs, fn=None):
         return dostring(code, globs=globs_, fn=fn)
+    def _docompiled(code, globs_=globs):
+        globs[__name__] = "exec"
+#        thread = threading.Thread(target=exec, args=(code, globs_))
+#        thread.start()
+#        while True:
+#            print(thread.is_alive())
+        data = multiprocessing.Manager().dict()
+        def exec_(code, globs_, data):
+            try:
+                data[0] = [True, exec(code, globs_)]
+            except BaseException as e:
+                data[0] = [False, e]
+        process = multiprocessing.Process(target=exec_, args=(code, globs_, data))
+        process.start()
+        process.join() # please god don't let this process lock us up
+#        while True:
+#             if not process.is_alive(): break
+        res = data[1]
+        del globs[__name__]
+        return
+        if not data[0]:
+            raise res
+        return res
     def _globals(): return {**rglobs, **globs}
     def _locals(): return locs
     def exc_info():
@@ -143,10 +167,12 @@ def run(code: str, *, globs=None, fn=None):
         ptbs("__import__", _unimport)
         if isinstance(__builtins__, dict):
             ptbs("__build_class__", __builtins__["__build_class__"])
-            ptbs("isinstance", __builtins__["isinstance"])
         else:
             ptbs("__build_class__", __builtins__.__build_class__)
-            ptbs("isinstance", __builtins__.isinstance)
+        ptbs("isinstance", isinstance)
+        ptbs("issubclass", issubclass)
+        ptbs("id", id)
+        ptbs("type", type)
         ptbs("object", object)
         ptbs("hasattr", hasattr)
         ptbs("setattr", setattr)
@@ -155,9 +181,11 @@ def run(code: str, *, globs=None, fn=None):
         ptbs("Exception", Exception)
         ptbs("BaseException", BaseException)
         ptbs("FileNotFoundError", FileNotFoundError)
-        ptbs("ImportError", ImportError)
         ptbs("IndexError", IndexError)
         ptbs("__name__", "__pyvm__")
+        globs["executor"] = dotdict()
+        globs["executor"].compile = compile
+        globs["executor"].exec = _docompiled
         globs["__loader__"] = _loader()
         globs["__name__"] = "__pyvm__"
         globs["component"] = __components
@@ -172,7 +200,7 @@ def run(code: str, *, globs=None, fn=None):
         globs["globals"] = globals
         globs["locals"] = locals
         globs["exc_info"] = exc_info
-        globs["traceback"] = traceback
+#        globs["traceback"] = traceback
         globs["realtime"] = lambda: time.mktime(time.localtime())-time.timezone
 
         __components.computer.pusher("kb_event",_kbevent, (__components.keyboard, ))
@@ -206,10 +234,11 @@ def keyboard_listener():
 @exit_after(0.25)
 def screen_flusher():
     global __shown
+    print(f"\033[{__shown + 1}A")
     __shown = __components.gpu.show()
     print()
 #    print("\033[u", end="")
-    print(f"\033[{__shown + 1}A")
+
 def vm_runner():
     with open(__components.eeprom.bios_path, 'r', encoding="utf-8") as f:
         code = f.read()
@@ -220,6 +249,7 @@ def vm_runner():
 def shutdowner():
     sys.settrace(None)
 
+    print(f"\033[{__shown + 1}A")
     print("\033[?25h", end="", flush=True)
 #    print("\033[F" * (__shown + 1))
     __components.gpu.show()
@@ -245,9 +275,17 @@ __doing_routine = False
 __last_gpuflush = None
 def main_routine_dispatcher(frame, _event, arg):
     global __lines, __doing_routine, __last_gpuflush
+
+#    print(frame, _event)
+
 #    print(frame, _event, arg)
 #    time.sleep(0)
-    print("", end="", flush=False)
+
+    # i love python <3
+#    [ print("", end="", flush=False)  for i in range(10) ]
+
+#    if _event == "call": return None
+    if frame.f_globals.get("__name__") == "exec": return None
     if frame.f_globals["__name__"] == __name__: return None
     if frame.f_globals.get(frame.f_code.co_name) in [*[r[0] for r in __components.computer.routines], main_routine_dispatcher]: return None
 
@@ -258,24 +296,20 @@ def main_routine_dispatcher(frame, _event, arg):
     if __doing_routine: return None
 
     __doing_routine = True
-    sys.settrace(None)
     for routine in __components.computer.routines:
         routine[0](*routine[1])
-    sys.settrace(main_routine_dispatcher)
     __doing_routine = False
 
     if _event == "line":
         __lines += 1
     __doing_routine = True
-    sys.settrace(None)
     if __last_gpuflush == None: __last_gpuflush = uptime()
-    if uptime() - __last_gpuflush > 1 / 30:
+    if uptime() - __last_gpuflush > 1 / 15:
         screen_flusher()
         __last_gpuflush = uptime()
     if __lines % __need_lines_kblisten == 0:
         with nonblockinginput.NonBlockingInput():
             keyboard_listener()
-    sys.settrace(main_routine_dispatcher)
     __doing_routine = False
     return main_routine_dispatcher
 
@@ -286,6 +320,7 @@ signal.signal(signal.SIGINT, intshutdown)
 signal.signal(signal.SIGTERM, intshutdown)
 
 sys.settrace(main_routine_dispatcher)
+
 try:
     print("\033[s", end="", flush=True)
     print("\033[?25l", end="", flush=True)

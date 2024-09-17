@@ -12,7 +12,9 @@ class Module:
 
 locations = Module("locations", {"libs": ['/lib']})
 
-FSException = Module("abc.filesystem", dofile(f"/lib/abc/filesystem.py", fn=f"/lib/abc/filesystem.py")).FSException
+filesystem = Module("abc.filesystem", dofile(f"/lib/abc/filesystem.py", fn=f"/lib/abc/filesystem.py"))
+ImportError = Module("abc.package", dofile(f"/lib/abc/package.py", fn=f"/lib/abc/package.py")).ImportError
+ModuleNotFound = Module("abc.package", dofile(f"/lib/abc/package.py", fn=f"/lib/abc/package.py")).ModuleNotFound
 
 def importer(name, globals, locals, names, level, influence_globals=False):
     if name in loaded:
@@ -22,17 +24,21 @@ def importer(name, globals, locals, names, level, influence_globals=False):
         try:
             mod = dofile(f"{location}/{name.replace('.', '/')}.py", fn=f"{location}/{name.replace('.', '/')}.py", influence_globals=influence_globals)
             break
-        except FSException:
+        except filesystem.NoSuchFileOrDirectory:
             pass
+        except Exception as e:
+            raise ImportError(e) from e
         if mod: break
         try:
             mod = dofile(f"{location}/{name.replace('.', '/')}/__init__.py", fn=f"{location}/{name.replace('.', '/')}/__init__.py", influence_globals=influence_globals)
             break
-        except FSException:
+        except filesystem.NoSuchFileOrDirectory:
             pass
+        except Exception as e:
+            raise ImportError(e) from e
         if mod: break
     if mod is None:
-        raise ImportError(f"Module '{name}' can not be found.")
+        raise ModuleNotFound(f"Module '{name}' can not be found.")
     mod = Module(name, mod)
     if mod.__doc__ and "SOD" in mod.__doc__:
         doc = mod.__doc__
@@ -53,9 +59,10 @@ __builtins__.__import__ = importer
 
 import locations
 import filesystem
-FSException = filesystem.FSException
 
 loaded["components"] = importer("components", dglbs, {}, [], 0)
 del globals()["component"]
+loaded["executor"] = executor
+del globals()["executor"]
 
 loaded["package"] = Module("package", globals())

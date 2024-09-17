@@ -2,6 +2,7 @@ import io
 import filesystem
 import locations
 import term
+import traceback
 
 ENV = {}
 

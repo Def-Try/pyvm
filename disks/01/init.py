@@ -38,8 +38,8 @@ log("Discovered RootFS")
 dofile("/lib/package.py", influence_globals=True)
 log("Package management ready")
 
-for type, item in fs.list("/boot"):
-    if type != "file" or not item.endswith(".py"): continue
+for _type, item in fs.list("/boot"):
+    if _type != "file" or not item.endswith(".py"): continue
     log(f"Running /boot/{item}...")
     _log = log
     def log(text):

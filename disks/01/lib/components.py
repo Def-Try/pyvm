@@ -7,7 +7,7 @@ needsinit=false
 EOD
 """
 
-class NoSuchComponent(Exception): pass
+from abc.components import NoSuchComponent
 
 class Components:
     def __init__(self, components, types):
@@ -23,7 +23,7 @@ class Components:
                  if not isinstance(c, type): continue
                  self.primaries[attr] = c
                  return c
-        raise IndexError(f"No such component: {attr}")
+        raise NoSuchComponent(f"No such component: {attr}")
     def list(self):
         for c in self.components: yield c
     def all(self, type):

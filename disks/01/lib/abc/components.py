@@ -1,0 +1,1 @@
+class NoSuchComponent(Exception): pass

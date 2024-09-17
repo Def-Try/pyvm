@@ -10,26 +10,27 @@ def print(stuff):
     component.gpu.set(0, y, stuff)
     y += 1
 
+
 def delay(s):
     st = uptime()
     while uptime() - st < s: pass
 
 gpu.fill(0, 0, w, h, "█")
-delay(0.25)
+#delay(0.25)
 gpu.fill(0, 0, w, h, " ")
-delay(0.25)
+#delay(0.25)
 
 gpu.set_resolution(*gpu.max_resolution())
 w, h = gpu.get_resolution()
 gpu.set_foreground(255, 255, 255)
 
 gpu.fill(0, 0, w, h, "█")
-delay(0.25)
+#delay(0.25)
 gpu.fill(0, 0, w, h, " ")
-delay(1)
+#delay(1)
 
 print("Starting up...")
-delay(0.25)
+#delay(0.25)
 print("Component listing:")
 #delay(0.25)
 
@@ -53,9 +54,9 @@ def try_boot(fs):
     print(f"{fs.uuid}: booting!")
     component.eeprom.data = fs.uuid
     component.set_primary(fs)
-    delay(1)
+#    delay(1)
     gpu.clear()
-    delay(.2)
+#    delay(.2)
     del y, w, h, print, delay, file, gpu
     dostring(code, fn="init.py")
     error("system halted")

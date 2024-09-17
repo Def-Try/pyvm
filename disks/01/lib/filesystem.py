@@ -1,21 +1,22 @@
 import components
 
-from abc.filesystem import FSException
+from abc.filesystem import ( AlreadyMounted, UsedByMounted,
+                             AlreadyExists, PathInvalid,
+                             NoSuchFileOrDirectory, IsNotADirectory )
 
 mounts = {}
-#if "_list" not in locals():
 _list = list
 
 def mount(hdd, path):
     global mounts
     if hdd in [i[1] for i in mounts.items()]:
-        raise FSException("Filesystem already mounted at: "+dict([_list(reversed(i)) for i in mounts.items()])[hdd])
+        raise AlreadyMounted("Filesystem already mounted at: "+dict([_list(reversed(i)) for i in mounts.items()])[hdd])
     if path in mounts:
-        raise FSException("Path is already used by mounted filesystem")
+        raise UsedByMounted("Path is already used by mounted filesystem")
     if exists(path) and not path == "/":
-        raise FSException("Path exists on a real file system")
+        raise AlreadyExists("Path exists on a real file system")
     if not exists(parent(path)) and not path == "/":
-        raise FSException("Parent directory is invalid: "+path)
+        raise PathInvalid("Parent directory is invalid: "+path)
     mounts[path] = hdd
 
 def cleanse(path):
@@ -67,18 +68,23 @@ def list(path):
     for i in flist: yield i
 
 def open(path, mode='r'):
-    if not exists(path) and (mode == 'r' or mode == 'rb'): raise FSException(f"No such file or directory: {path}")
+    if not exists(path) and (mode == 'r' or mode == 'rb'):
+        raise NoSuchFileOrDirectory(f"No such file or directory: {path}")
     drive, path = to_real_path(path)
     return drive.open(path, mode=mode)
 
 def isdirectory(path):
-    if not exists(parent(path)): raise FSException(f"No such file or directory: {path}")
+    if not exists(parent(path)):
+        raise NoSuchFileOrDirectory(f"No such file or directory: {path}")
     flist = _list(list(parent(path)))
-    if _list(iterate(canonalize(path)))[-1] == '' and len(_list(iterate(canonalize(path)))) == 2: return True
+    if _list(iterate(canonalize(path)))[-1] == '' and len(_list(iterate(canonalize(path)))) == 2:
+        return True
     return ("dir", _list(iterate(canonalize(path)))[-1]) in flist
 
 def mkdir(path):
-    if not exists(parent(path)): raise FSException(f"No such directory: {path}")
-    if not isdirectory(parent(path)): raise FSException(f"Specified path is not a directory")
+    if not exists(parent(path)):
+        raise NoSuchFileOrDirectory(f"No such directory: {path}")
+    if not isdirectory(parent(path)):
+        raise IsNotADirectory(f"Specified path is not a directory")
     drive, path = to_real_path(path)
     return drive.mkdir(path)
