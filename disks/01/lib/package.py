@@ -3,6 +3,7 @@ dglbs = globals().copy()
 loaded = {}
 
 class Module:
+    name = "UNK"
     def __init__(self, name, mdict):
         self.name = name
         for k,v in mdict.items():
@@ -12,9 +13,21 @@ class Module:
 
 locations = Module("locations", {"libs": ['/lib']})
 
-filesystem = Module("abc.filesystem", dofile(f"/lib/abc/filesystem.py", fn=f"/lib/abc/filesystem.py"))
-ImportError = Module("abc.package", dofile(f"/lib/abc/package.py", fn=f"/lib/abc/package.py")).ImportError
-ModuleNotFound = Module("abc.package", dofile(f"/lib/abc/package.py", fn=f"/lib/abc/package.py")).ModuleNotFound
+filesystem = Module("abc.filesystem",
+                    dofile(f"/lib/abc/filesystem.py",
+                           globs={'__name__': 'abc.filesystem', **globals()},
+                           fn=f"/lib/abc/filesystem.py")
+                    )
+ImportError = Module("abc.package",
+                     dofile(f"/lib/abc/package.py",
+                            globs={'__name__': 'abc.package', **globals()},
+                            fn=f"/lib/abc/package.py")
+                     ).ImportError
+ModuleNotFound = Module("abc.package",
+                        dofile(f"/lib/abc/package.py",
+                               globs={'__name__': 'abc.package', **globals()},
+                               fn=f"/lib/abc/package.py")
+                        ).ModuleNotFound
 
 def importer(name, globals, locals, names, level, influence_globals=False):
     if name in loaded:

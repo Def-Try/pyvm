@@ -10,8 +10,7 @@ with filesystem.open("/etc/motd") as f:
     lines = f.readlines()
     motdtext = lines[random.random(0, len(lines)-1)].strip()
 
-_ts = ["night", "morning", "day", "evening"][int(realtime() % (24*60*60) / 3600 // 6)]
-welcome = f"Good {_ts}."
+welcome = f"{components.computer.total_ram // 1024.0}K ram available"
 
 print(f"+{'-'*(w-2)}+")
 print(f"| {'PythOS v1':<{w-4}} |")

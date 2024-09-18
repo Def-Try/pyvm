@@ -74,10 +74,10 @@ def getch():
 
 last_gpu_flush = 0
 linecount = 0
+know_sizes = {}
 
 
 def shutdowner():
-
     sys.settrace(None)
 
     print(f"\033[{shown + 1}A")
@@ -102,7 +102,9 @@ def intshutdown(signum=signal.SIGINT, frame=None):
 
 
 def main_routine_dispatcher(frame, _event, arg):
-    global shown, last_gpu_flush, linecount
+    global shown, last_gpu_flush, linecount, know_sizes
+    # wasname = vm_globals.__name__
+    # vm_globals.__name__ = "AAAAAAAA"
     if _event == 'line':
         linecount += 1
     if linecount % components.cpu.speed == 0:
@@ -123,21 +125,58 @@ def main_routine_dispatcher(frame, _event, arg):
     size = 0
     know = []
     fr = f[:-4]
+
+    def _calclist(list_):
+        nonlocal know
+        size = 0
+        for v in list_:
+            if id(v) in know: continue
+            if id(v) in know_sizes:
+                size += know_sizes[id(v)]
+                continue
+            know += [id(v)]
+            ssize = size
+            size += sys.getsizeof(v)
+            if isinstance(v, dict):
+                size += _calcdict(v)
+            if isinstance(v, list):
+                size += _calclist(v)
+            know_sizes[id(v)] = size - ssize
+        return size
+
+    def _calcdict(dict_):
+        nonlocal know
+        size = 0
+        for k,v in dict_.items():
+            if id(v) in know: continue
+            if id(v) in know_sizes:
+                size += know_sizes[id(v)]
+                continue
+            know += [id(v)]
+            ssize = size
+            size += sys.getsizeof(v)
+            if isinstance(v, dict):
+                size += _calcdict(v)
+            if isinstance(v, list):
+                size += _calclist(v)
+            know_sizes[id(v)] = size - ssize
+        return size
+
+    counting = False
     for frame_ in fr:
-        for k,v in frame_.f_globals.items():
-            if str(k) + str(v) in know: continue
-            know += [str(k) + str(v)]
-            size += sys.getsizeof(k) + sys.getsizeof(v)
-    try:
-        raise ValueError()
-    except ValueError as e:
-        tb = e.__traceback__
+        if frame_.f_globals.get("__name__") not in [vm_globals.__name__]:
+            if not counting: continue
+            if frame_.f_globals.get("__name__") == __name__:
+                continue
+        counting = frame_ if not counting else counting
+        size += _calcdict(frame_.f_globals) + _calcdict(frame_.f_locals)
+    # size = 0
+
     if size > components.computer.total_ram:
         error(f"ram overflowed ({size} > {components.computer.total_ram})",
-              f"at {str(f[0].f_code.co_filename)}:{str(f[0].f_lineno)}",
-              f"function {str(f[0].f_code.co_name)}")
+              f"at {str(counting.f_code.co_filename)}:{str(counting.f_lineno)}",
+              f"function {str(counting.f_code.co_name)}")
         return None
-        sys.excepthook(MemoryError, MemoryError("too much ram used"), tb)
 
     # print(name)
     if vm_globals.uptime() - last_gpu_flush > 1 / components.gpu.refreshrate:
