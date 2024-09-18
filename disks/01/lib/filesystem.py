@@ -22,6 +22,7 @@ def mount(hdd, path):
 def cleanse(path):
     if path == "": return "/"
     if path.endswith("/"): path = cleanse(path[:-1])
+    if path.startswith("//"): path = cleanse(path[1:])
     return path
 
 def canonalize(path):

@@ -68,8 +68,7 @@ vm_globals = dotdict.dotdict({"__builtins__": dotdict.dotdict()})
 
 
 def getch():
-    with nbi:
-        return keyboard.doch(kbhit.getch())
+    return keyboard.doch(kbhit.getch())
 
 
 last_gpu_flush = 0
@@ -120,6 +119,7 @@ def main_routine_dispatcher(frame, _event, arg):
     f = [frame]
     while f[-1].f_back != None:
         f += [f[-1].f_back]
+    # print(f)
     if f[-3].f_code.co_name != "run":
         return None
     size = 0
@@ -128,6 +128,7 @@ def main_routine_dispatcher(frame, _event, arg):
 
     def _calclist(list_):
         nonlocal know
+        if id(list_) in know: return 0
         size = 0
         for v in list_:
             if id(v) in know: continue
@@ -146,6 +147,7 @@ def main_routine_dispatcher(frame, _event, arg):
 
     def _calcdict(dict_):
         nonlocal know
+        if id(dict_) in know: return 0
         size = 0
         for k,v in dict_.items():
             if id(v) in know: continue
@@ -295,13 +297,14 @@ signal.signal(signal.SIGINT, intshutdown)
 signal.signal(signal.SIGTERM, intshutdown)
 print("Signal shutdown done")
 
-print("Main routine dispatcher enable")
-sys.settrace(main_routine_dispatcher)
-sys.excepthook = except_hook
-
 print(f"PREP took {time.time() - pyvm_start_time:02f} seconds")
+
+print("Main routine dispatcher enable")
 
 print("\033[s", end="", flush=True)
 print("\033[?25l", end="", flush=True)
 
-run_vm()
+with nbi:
+    sys.settrace(main_routine_dispatcher)
+    sys.excepthook = except_hook
+    run_vm()

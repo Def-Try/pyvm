@@ -18,5 +18,5 @@ def trace_exc(trace):
 def format_exception(e):
     klass, objekt, trace = e
     traceback = trace_exc(trace)
-    formatted = f"{traceback}\n{getattr(klass, "__name__", "???")}: {objekt}"
+    formatted = f"{traceback}\n{getattr(klass, '__name__', '???')}: {objekt}"
     return formatted

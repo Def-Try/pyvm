@@ -1,7 +1,9 @@
 import filesystem
 
 def main(raw, env):
-    path = filesystem.canonalize((env.get("cwd", "")*int(not raw.startswith("/")))+"/"+raw)
+    path = filesystem.canonalize(
+        (env.get("cwd", "")*int(not raw.startswith("/")))+"/"+raw
+    )
     fpath = ""
     for fpart in filesystem.iterate(path):
         fpath = fpath + "/" + fpart
@@ -11,4 +13,4 @@ def main(raw, env):
         if not filesystem.isdirectory(fpath):
             print(f"cd: is not a directory: {fpath}")
             return 1
-    env["cwd"] = fpath
+    env["cwd"] = filesystem.canonalize(fpath)
